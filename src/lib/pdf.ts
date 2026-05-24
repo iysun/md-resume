@@ -1,5 +1,11 @@
 import resumeCss from '../styles/resume.css?inline'
 
+type PdfMode = 'client' | 'server'
+
+function getPdfMode(): PdfMode {
+  return import.meta.env.VITE_PDF_MODE === 'server' ? 'server' : 'client'
+}
+
 export function buildPrintDocument(bodyHtml: string): string {
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -14,10 +20,11 @@ export function buildPrintDocument(bodyHtml: string): string {
 </html>`
 }
 
-export async function exportPdf(bodyHtml: string, filename = 'resume.pdf'): Promise<void> {
+async function exportPdfServer(bodyHtml: string, filename = 'resume.pdf'): Promise<void> {
   const html = buildPrintDocument(bodyHtml)
+  const apiUrl = import.meta.env.VITE_PDF_API_URL || '/api/export-pdf'
 
-  const response = await fetch('/api/export-pdf', {
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ html, filename }),
@@ -35,6 +42,23 @@ export async function exportPdf(bodyHtml: string, filename = 'resume.pdf'): Prom
   anchor.download = filename
   anchor.click()
   URL.revokeObjectURL(url)
+}
+
+export function printResume(): void {
+  window.print()
+}
+
+export async function exportPdf(bodyHtml: string, filename = 'resume.pdf'): Promise<void> {
+  if (getPdfMode() === 'server') {
+    try {
+      await exportPdfServer(bodyHtml, filename)
+      return
+    } catch {
+      // 服务端不可用时静默降级为浏览器打印
+    }
+  }
+
+  printResume()
 }
 
 export function downloadMarkdown(content: string, filename = 'resume.md'): void {

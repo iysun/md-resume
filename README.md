@@ -1,67 +1,79 @@
 # MD 简历编辑器
 
-用 Markdown 编写简历，浏览器实时预览 HTML 排版，一键导出 A4 PDF。
+用 Markdown 编写简历，浏览器实时预览 HTML 排版，导出 PDF。
 
 ## 功能
 
 - 左侧 Markdown 编辑，右侧实时 HTML 预览（300ms 防抖）
 - 内容自动保存到浏览器 localStorage
-- 一键导出 PDF（Puppeteer）
+- 导出 PDF（默认浏览器打印，无需后端）
 - 导入 / 导出 `.md` 文件
-- 浏览器打印备用方案
 
 ## 环境要求
 
 - Node.js 18+
-- Linux 建议安装中文字体（PDF 中文显示）：
-
-```bash
-sudo apt install fonts-noto-cjk
-```
 
 ## 安装与运行
 
 ```bash
 cd md-resume
 npm install
-npm run dev
+npm run dev:web
 ```
 
 浏览器打开终端显示的地址（默认 [http://localhost:5173](http://localhost:5173)）。
 
-`npm run dev` 会同时启动：
+**默认无需启动后端**，`npm run dev:web` 即可完整使用所有功能。点击「导出 PDF」会打开浏览器打印对话框，选择「另存为 PDF」即可保存。
 
-- Vite 前端（5173，被占用时自动换端口）
-- PDF 导出服务（3001）
-
-### 首次安装：下载 Puppeteer Chrome
-
-`npm install` 会自动尝试下载 Chrome。若网络不通，可在终端开启代理后手动安装：
+## 纯静态部署
 
 ```bash
-# zsh 用户（已有 set-proxy 函数）
-set-proxy
-
-# 或手动设置代理
-export http_proxy=http://127.0.0.1:7890
-export https_proxy=http://127.0.0.1:7890
-
-# 清理损坏的缓存后重新安装
-rm -rf $HOME/.cache/puppeteer/chrome
-cd md-resume
-PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer npx puppeteer browsers install chrome
+npm run build
 ```
 
-安装成功后会输出 Chrome 可执行文件路径。
+将 `dist/` 目录部署到任意静态托管（Nginx、GitHub Pages 等），无需 PDF 服务。
 
 ## 脚本
 
 | 命令 | 说明 |
 |------|------|
-| `npm run dev` | 启动前端 + PDF 服务 |
-| `npm run dev:web` | 仅启动 Vite |
-| `npm run dev:pdf` | 仅启动 PDF 服务 |
+| `npm run dev:web` | 启动前端（推荐，功能完整） |
+| `npm run dev` | 启动前端 + 可选 PDF 服务 |
+| `npm run dev:pdf` | 仅启动 Puppeteer PDF 服务 |
 | `npm run build` | 构建前端静态资源 |
+| `npm run preview` | 预览构建产物 |
+
+## 可选：Puppeteer 服务端 PDF
+
+如需一键下载 PDF 文件（无需打印对话框），可启用 Puppeteer 后端：
+
+1. 安装 Chrome（首次）：
+
+```bash
+PDF_SERVER=1 npm install
+# 或手动：
+PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer npx puppeteer browsers install chrome
+```
+
+2. 设置环境变量并启动：
+
+```bash
+VITE_PDF_MODE=server npm run dev
+```
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `VITE_PDF_MODE` | `client` | `client` = 浏览器打印；`server` = Puppeteer 一键下载 |
+| `VITE_PDF_API_URL` | `/api/export-pdf` | 生产环境自定义 API 地址 |
+| `PDF_SERVER` | — | 设为 `1` 时 `npm install` 会下载 Puppeteer Chrome |
+
+Linux 服务端建议安装中文字体：
+
+```bash
+sudo apt install fonts-noto-cjk
+```
+
+若 Puppeteer 服务不可用，会自动降级为浏览器打印。
 
 ## Markdown 写法
 
@@ -88,7 +100,7 @@ PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer npx puppeteer browsers install chrome
 ```
 md-resume/
 ├── public/templates/   # 默认简历模板
-├── server/             # Puppeteer PDF 服务
+├── server/             # 可选 Puppeteer PDF 服务
 └── src/
     ├── components/     # 编辑器、预览、工具栏
     ├── lib/            # Markdown 解析、存储、PDF
@@ -97,11 +109,18 @@ md-resume/
 
 ## 常见问题
 
-**导出 PDF 失败？**
+**如何导出 PDF？**
 
-1. 确认 PDF 服务已启动（`npm run dev` 或 `npm run dev:pdf`）
-2. 首次导出 Puppeteer 需下载 Chromium，可能较慢
-3. Linux 无头环境若报错，可尝试安装 Chromium 依赖：
+默认模式下点击「导出 PDF」，在打印对话框中选择目标为「另存为 PDF」即可。矢量输出，排版与预览一致。
+
+**想要一键下载 PDF 文件？**
+
+设置 `VITE_PDF_MODE=server` 并启动 PDF 服务（`npm run dev:pdf` 或 `npm run dev`）。
+
+**Puppeteer 导出失败？**
+
+1. 确认 PDF 服务已启动
+2. Linux 无头环境安装 Chromium 依赖：
 
 ```bash
 sudo apt install -y chromium fonts-noto-cjk \
@@ -110,6 +129,4 @@ sudo apt install -y chromium fonts-noto-cjk \
   libgbm1 libasound2
 ```
 
-**PDF 中文乱码？**
-
-安装 `fonts-noto-cjk` 后重启 PDF 服务。
+服务不可用时会自动降级为浏览器打印。

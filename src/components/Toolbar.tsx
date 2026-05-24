@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { exportPdf, downloadMarkdown } from '../lib/pdf'
+import { exportPdf, downloadMarkdown, printResume } from '../lib/pdf'
 import { getPreviewHtml } from './Preview'
 
 interface ToolbarProps {
@@ -17,16 +17,13 @@ export function Toolbar({ content, onImport, onReset }: ToolbarProps) {
     try {
       const bodyHtml = getPreviewHtml(content)
       await exportPdf(bodyHtml)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '导出 PDF 失败'
-      alert(message)
     } finally {
       setExporting(false)
     }
   }
 
   function handlePrint() {
-    window.print()
+    printResume()
   }
 
   function handleExportMd() {
