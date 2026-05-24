@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Editor } from './components/Editor'
+import type { SelectionAnchor } from './components/Editor'
 import { Preview } from './components/Preview'
 import { Toolbar } from './components/Toolbar'
 import { AiCheckModal } from './components/AiCheckModal'
+import { AiChatPanel } from './components/AiChatPanel'
+import { SelectionAiToolbar } from './components/SelectionAiToolbar'
 import { useAiCheck } from './hooks/useAiCheck'
+import { useAiChat } from './hooks/useAiChat'
 import { useDocuments } from './hooks/useDocuments'
 import { useSettings } from './hooks/useSettings'
 import { checkApiHealth } from './lib/api-health'
@@ -23,6 +27,7 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 
 export default function App() {
   const [backendAvailable, setBackendAvailable] = useState(false)
+  const [selectionAnchor, setSelectionAnchor] = useState<SelectionAnchor | null>(null)
   const editorRef = useRef<import('./components/Editor').EditorHandle>(null)
 
   const docs = useDocuments({ backendAvailable })
@@ -35,6 +40,8 @@ export default function App() {
     backendAvailable,
     docs.activeDocumentId,
   )
+
+  const aiChat = useAiChat(editorRef, backendAvailable)
 
   useEffect(() => {
     let cancelled = false
@@ -53,8 +60,12 @@ export default function App() {
   }, [])
 
   const handleOpenAiCheckSelection = useCallback(() => {
-    ai.openCheck('selection')
+    ai.openCheckAndRun('selection')
   }, [ai])
+
+  const handleOpenAiTalk = useCallback(() => {
+    aiChat.openChat(selectionAnchor)
+  }, [aiChat, selectionAnchor])
 
   const handleDeleteDocument = useCallback(async () => {
     if (!docs.activeDocumentId) return
@@ -93,10 +104,9 @@ export default function App() {
         onDeleteDocument={handleDeleteDocument}
         onSwitchDocument={docs.switchDocument}
         onThemeChange={(theme: ThemeSetting) => void settings.changeTheme(theme)}
-        aiButtonLabel={ai.aiButtonLabel}
-        aiChecking={ai.phase === 'loading'}
+        aiChecking={ai.phase === 'loading' || ai.phase === 'streaming'}
         aiAvailable={ai.backendAvailable}
-        onAiCheck={() => ai.openCheck()}
+        onAiCheck={() => ai.openCheckAndRun('document')}
         onAiHistory={() => ai.openHistory()}
       />
       <div className="app-main">
@@ -110,8 +120,15 @@ export default function App() {
             value={docs.content}
             onChange={docs.setContent}
             theme={settings.theme}
-            onSelectionChange={ai.handleSelectionChange}
+            onSelectionAnchorChange={setSelectionAnchor}
             onRequestAiCheck={handleOpenAiCheckSelection}
+            onRequestAiTalk={handleOpenAiTalk}
+          />
+          <SelectionAiToolbar
+            anchor={ai.modalOpen || aiChat.open ? null : selectionAnchor}
+            disabled={!ai.backendAvailable}
+            onCheck={handleOpenAiCheckSelection}
+            onTalk={handleOpenAiTalk}
           />
         </section>
         <section className="pane pane-preview">
@@ -129,6 +146,7 @@ export default function App() {
         phase={ai.phase}
         session={ai.session}
         result={ai.result}
+        streamText={ai.streamText}
         error={ai.error}
         appliedKeys={ai.appliedKeys}
         history={ai.history}
@@ -144,9 +162,23 @@ export default function App() {
         onBackHistory={() => ai.setSelectedHistory(null)}
         onDeleteHistory={ai.removeHistoryItem}
       />
-      {ai.toast && (
+      <AiChatPanel
+        open={aiChat.open}
+        session={aiChat.session}
+        messages={aiChat.messages}
+        streaming={aiChat.streaming}
+        streamingText={aiChat.streamingText}
+        error={aiChat.error}
+        anchor={aiChat.panelAnchor}
+        onClose={aiChat.closeChat}
+        onSend={aiChat.sendMessage}
+        onReplace={aiChat.replaceSelection}
+        onInsert={aiChat.insertAtSelection}
+        onCopy={aiChat.copyText}
+      />
+      {(ai.toast || aiChat.toast) && (
         <div className="app-toast" role="status">
-          {ai.toast}
+          {ai.toast ?? aiChat.toast}
         </div>
       )}
     </div>

@@ -103,3 +103,33 @@ export async function runAiCheck(
   const content = completion.choices[0]?.message?.content ?? "";
   return parseAiResponse(content);
 }
+
+export async function runAiCheckStream(
+  text: string,
+  scope: "selection" | "document",
+  onDelta: (chunk: string) => void,
+): Promise<AiCheckResult> {
+  const openai = getClient();
+  const model = getAiModel();
+
+  const stream = await openai.chat.completions.create({
+    model,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: buildUserPrompt(text, scope) },
+    ],
+    response_format: { type: "json_object" },
+    stream: true,
+  });
+
+  let raw = "";
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content ?? "";
+    if (delta) {
+      raw += delta;
+      onDelta(delta);
+    }
+  }
+
+  return parseAiResponse(raw);
+}

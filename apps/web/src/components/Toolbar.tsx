@@ -15,7 +15,6 @@ interface ToolbarProps {
   onDeleteDocument: () => void
   onSwitchDocument: (id: string) => void
   onThemeChange: (theme: ThemeSetting) => void
-  aiButtonLabel: string
   aiChecking: boolean
   aiAvailable: boolean
   onAiCheck: () => void
@@ -40,7 +39,6 @@ export function Toolbar({
   onDeleteDocument,
   onSwitchDocument,
   onThemeChange,
-  aiButtonLabel,
   aiChecking,
   aiAvailable,
   onAiCheck,
@@ -162,7 +160,7 @@ export function Toolbar({
           disabled={!aiAvailable || aiChecking}
           title={aiAvailable ? undefined : '后端未连接，AI 检查不可用'}
         >
-          {aiChecking ? '检查中…' : aiButtonLabel}
+          {aiChecking ? '检查中…' : 'AI 检查全文'}
         </button>
         <button
           type="button"

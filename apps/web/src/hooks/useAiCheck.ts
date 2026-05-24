@@ -1,11 +1,11 @@
-import { useCallback, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { EditorHandle, EditorSelection } from '../components/Editor'
 import { deleteAiCheck, getAiCheck, listAiChecks } from '../lib/api/ai-checks'
 import type { AiCheckDetail, AiCheckSummary } from '../lib/api/types'
-import { checkMarkdown, type AiCheckResult, type AiCheckScope } from '../lib/ai-check'
+import { checkMarkdownStream, type AiCheckResult, type AiCheckScope } from '../lib/ai-check'
 import { buildScopePreview, type ScopePreview } from '../lib/ai-check-scope'
 
-export type AiCheckModalPhase = 'confirm' | 'loading' | 'result' | 'error'
+export type AiCheckModalPhase = 'confirm' | 'loading' | 'streaming' | 'result' | 'error'
 export type AiCheckModalTab = 'check' | 'history'
 
 export interface AiCheckSession {
@@ -21,13 +21,12 @@ export function useAiCheck(
   backendAvailable: boolean,
   documentId: string | null,
 ) {
-  const [hasSelection, setHasSelection] = useState(false)
-  const [selectionCharCount, setSelectionCharCount] = useState(0)
   const [modalOpen, setModalOpen] = useState(false)
   const [modalTab, setModalTab] = useState<AiCheckModalTab>('check')
   const [phase, setPhase] = useState<AiCheckModalPhase>('confirm')
   const [session, setSession] = useState<AiCheckSession | null>(null)
   const [result, setResult] = useState<AiCheckResult | null>(null)
+  const [streamText, setStreamText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<string | null>(null)
@@ -35,6 +34,13 @@ export function useAiCheck(
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [selectedHistory, setSelectedHistory] = useState<AiCheckDetail | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort()
+    }
+  }, [])
 
   const refreshHistory = useCallback(async () => {
     if (!documentId || !backendAvailable) {
@@ -62,11 +68,6 @@ export function useAiCheck(
     },
     [refreshHistory],
   )
-
-  const handleSelectionChange = useCallback((selected: boolean, charCount: number) => {
-    setHasSelection(selected)
-    setSelectionCharCount(charCount)
-  }, [])
 
   const showToast = useCallback((message: string) => {
     setToast(message)
@@ -97,21 +98,69 @@ export function useAiCheck(
     [content, editorRef],
   )
 
-  const openCheck = useCallback(
+  const cancelStream = useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+  }, [])
+
+  const startStreamCheck = useCallback(
+    async (nextSession: AiCheckSession) => {
+      cancelStream()
+      const controller = new AbortController()
+      abortRef.current = controller
+
+      setStreamText('')
+      setPhase('streaming')
+      setError(null)
+      setResult(null)
+      setAppliedKeys(new Set())
+
+      await checkMarkdownStream(
+        nextSession.text,
+        nextSession.scope,
+        {
+          onDelta: (chunk) => {
+            setStreamText((prev) => prev + chunk)
+          },
+          onDone: (checkResult) => {
+            if (controller.signal.aborted) return
+            setResult(checkResult)
+            setPhase('result')
+            abortRef.current = null
+            void refreshHistory()
+          },
+          onError: (message) => {
+            if (controller.signal.aborted) return
+            setError(message)
+            setPhase('error')
+            abortRef.current = null
+          },
+        },
+        { documentId: documentId ?? undefined, signal: controller.signal },
+      )
+    },
+    [cancelStream, documentId, refreshHistory],
+  )
+
+  const openCheckAndRun = useCallback(
     (forceScope?: AiCheckScope) => {
       if (!backendAvailable) return
       const nextSession = resolveCheckTarget(forceScope)
       if (!nextSession) return
       setSession(nextSession)
-      setResult(null)
-      setError(null)
-      setAppliedKeys(new Set())
       setSelectedHistory(null)
-      setPhase('confirm')
       setModalTab('check')
       setModalOpen(true)
+      void startStreamCheck(nextSession)
     },
-    [backendAvailable, resolveCheckTarget],
+    [backendAvailable, resolveCheckTarget, startStreamCheck],
+  )
+
+  const openCheck = useCallback(
+    (forceScope?: AiCheckScope) => {
+      openCheckAndRun(forceScope)
+    },
+    [openCheckAndRun],
   )
 
   const openHistory = useCallback(() => {
@@ -128,37 +177,23 @@ export function useAiCheck(
   }, [backendAvailable, content, documentId, refreshHistory])
 
   const closeModal = useCallback(() => {
+    cancelStream()
     setModalOpen(false)
     setPhase('confirm')
+    setStreamText('')
     setError(null)
     setSelectedHistory(null)
-  }, [])
+  }, [cancelStream])
 
   const runCheck = useCallback(async () => {
     if (!session) return
-    setPhase('loading')
-    setError(null)
-    try {
-      const checkResult = await checkMarkdown(
-        session.text,
-        session.scope,
-        documentId ?? undefined,
-      )
-      setResult(checkResult)
-      setPhase('result')
-      void refreshHistory()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '检查失败')
-      setPhase('error')
-    }
-  }, [documentId, refreshHistory, session])
+    await startStreamCheck(session)
+  }, [session, startStreamCheck])
 
   const retryCheck = useCallback(() => {
-    setPhase('confirm')
-    setError(null)
-    setResult(null)
-    setModalTab('check')
-  }, [])
+    if (!session) return
+    void startStreamCheck(session)
+  }, [session, startStreamCheck])
 
   const loadHistoryDetail = useCallback(async (id: string) => {
     setHistoryLoading(true)
@@ -226,19 +261,14 @@ export function useAiCheck(
     [editorRef, session, showToast],
   )
 
-  const aiButtonLabel = hasSelection
-    ? `AI 检查选区 (${selectionCharCount} 字)`
-    : 'AI 检查全文'
-
   return {
-    hasSelection,
-    selectionCharCount,
     modalOpen,
     modalTab,
     setModalTab: handleTabChange,
     phase,
     session,
     result,
+    streamText,
     error,
     appliedKeys,
     toast,
@@ -247,10 +277,9 @@ export function useAiCheck(
     historyError,
     selectedHistory,
     setSelectedHistory,
-    aiButtonLabel,
     backendAvailable,
-    handleSelectionChange,
     openCheck,
+    openCheckAndRun,
     openHistory,
     closeModal,
     runCheck,

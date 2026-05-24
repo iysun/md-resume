@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { AiCheckItem } from '../lib/ai-check'
 import type { AiCheckModalPhase, AiCheckModalTab, AiCheckSession } from '../hooks/useAiCheck'
 import type { AiCheckDetail, AiCheckSummary } from '../lib/api/types'
@@ -12,6 +12,7 @@ interface AiCheckModalProps {
   phase: AiCheckModalPhase
   session: AiCheckSession | null
   result: AiCheckResult | null
+  streamText: string
   error: string | null
   appliedKeys: Set<string>
   history: AiCheckSummary[]
@@ -57,6 +58,7 @@ export function AiCheckModal({
   phase,
   session,
   result,
+  streamText,
   error,
   appliedKeys,
   history,
@@ -72,6 +74,13 @@ export function AiCheckModal({
   onBackHistory,
   onDeleteHistory,
 }: AiCheckModalProps) {
+  const streamRef = useRef<HTMLPreElement>(null)
+
+  useEffect(() => {
+    if (phase !== 'streaming' || !streamRef.current) return
+    streamRef.current.scrollTop = streamRef.current.scrollHeight
+  }, [phase, streamText])
+
   useEffect(() => {
     if (!open) return
     function handleKeyDown(event: KeyboardEvent) {
@@ -159,6 +168,16 @@ export function AiCheckModal({
                     )}
                   </dl>
                   <pre className="ai-modal-excerpt">{session.preview.excerpt}</pre>
+                </div>
+              )}
+
+              {phase === 'streaming' && (
+                <div className="ai-modal-streaming">
+                  <p className="ai-modal-streaming-label">AI 正在分析{scopeLabel}内容…</p>
+                  <pre ref={streamRef} className="ai-modal-stream">
+                    {streamText}
+                    <span className="ai-modal-stream-cursor" aria-hidden="true" />
+                  </pre>
                 </div>
               )}
 
@@ -251,6 +270,9 @@ export function AiCheckModal({
                   <button type="button" onClick={onClose}>取消</button>
                   <button type="button" className="primary" onClick={onConfirm}>开始检查</button>
                 </>
+              )}
+              {phase === 'streaming' && (
+                <button type="button" onClick={onClose}>取消</button>
               )}
               {phase === 'loading' && (
                 <button type="button" disabled>检查中…</button>

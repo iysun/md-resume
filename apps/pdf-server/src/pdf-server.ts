@@ -2,7 +2,8 @@ import cors from '@fastify/cors'
 import Fastify from 'fastify'
 import puppeteer from 'puppeteer'
 import { AI_API_KEY_ENV_NAMES, getAiApiKey } from './ai-config.js'
-import { runAiCheck } from './ai-check.js'
+import { runAiCheck, runAiCheckStream } from './ai-check.js'
+import { runAiChatStream, type ChatMessage } from './ai-chat.js'
 import { loadEnvFile } from './load-env.js'
 import { runMigrations } from './db/migrate.js'
 import { registerDocumentRoutes } from './routes/documents.js'
@@ -142,6 +143,128 @@ async function main() {
       } catch (err) {
         console.error("AI check error:", err);
         return reply.status(502).send({ error: "AI 检查失败，请稍后重试" });
+      }
+    },
+  );
+
+  fastify.post<{
+    Body: {
+      text?: string
+      scope?: 'selection' | 'document'
+      documentId?: string
+    }
+  }>(
+    "/api/ai-check/stream",
+    async (request, reply) => {
+      const { text, scope = "document", documentId } = request.body;
+
+      if (!text || typeof text !== "string" || !text.trim()) {
+        return reply.status(400).send({ error: "缺少 text 字段" });
+      }
+
+      if (text.length > MAX_AI_TEXT_LENGTH) {
+        return reply
+          .status(400)
+          .send({ error: `文本过长，上限 ${MAX_AI_TEXT_LENGTH} 字符` });
+      }
+
+      if (scope !== "selection" && scope !== "document") {
+        return reply
+          .status(400)
+          .send({ error: "scope 必须为 selection 或 document" });
+      }
+
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+
+      function sendEvent(payload: Record<string, unknown>) {
+        reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+      }
+
+      try {
+        const result = await runAiCheckStream(text, scope, (delta) => {
+          sendEvent({ type: "delta", text: delta });
+        });
+
+        if (documentId && typeof documentId === "string") {
+          saveAiCheckHistory(documentId, scope, text, result);
+        }
+
+        sendEvent({ type: "done", result });
+      } catch (err) {
+        console.error("AI check stream error:", err);
+        sendEvent({ type: "error", message: "AI 检查失败，请稍后重试" });
+      } finally {
+        reply.raw.end();
+      }
+    },
+  );
+
+  fastify.post<{
+    Body: {
+      selection?: string
+      messages?: ChatMessage[]
+    }
+  }>(
+    "/api/ai-chat/stream",
+    async (request, reply) => {
+      const { selection, messages = [] } = request.body;
+
+      if (!selection || typeof selection !== "string" || !selection.trim()) {
+        return reply.status(400).send({ error: "缺少 selection 字段" });
+      }
+
+      if (selection.length > MAX_AI_TEXT_LENGTH) {
+        return reply
+          .status(400)
+          .send({ error: `选区过长，上限 ${MAX_AI_TEXT_LENGTH} 字符` });
+      }
+
+      if (!Array.isArray(messages)) {
+        return reply.status(400).send({ error: "messages 必须为数组" });
+      }
+
+      for (const message of messages) {
+        if (
+          !message ||
+          typeof message !== "object" ||
+          (message.role !== "user" && message.role !== "assistant") ||
+          typeof message.content !== "string"
+        ) {
+          return reply.status(400).send({ error: "messages 格式无效" });
+        }
+      }
+
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+
+      function sendEvent(payload: Record<string, unknown>) {
+        reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+      }
+
+      try {
+        const assistantMessage = await runAiChatStream(
+          selection,
+          messages,
+          (delta) => {
+            sendEvent({ type: "delta", text: delta });
+          },
+        );
+
+        sendEvent({ type: "done", message: assistantMessage });
+      } catch (err) {
+        console.error("AI chat stream error:", err);
+        sendEvent({ type: "error", message: "AI 对话失败，请稍后重试" });
+      } finally {
+        reply.raw.end();
       }
     },
   );

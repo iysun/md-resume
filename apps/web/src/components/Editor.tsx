@@ -20,6 +20,12 @@ export interface EditorSelection {
   toLine: number
 }
 
+export interface SelectionAnchor {
+  x: number
+  y: number
+  charCount: number
+}
+
 export interface EditorHandle {
   getSelection: () => EditorSelection | null
   replaceRange: (from: number, to: number, text: string) => void
@@ -38,7 +44,9 @@ interface EditorProps {
   onChange: (value: string) => void
   theme?: ThemeSetting
   onSelectionChange?: (hasSelection: boolean, charCount: number) => void
+  onSelectionAnchorChange?: (anchor: SelectionAnchor | null) => void
   onRequestAiCheck?: () => void
+  onRequestAiTalk?: () => void
 }
 
 interface ContextMenuState {
@@ -46,8 +54,30 @@ interface ContextMenuState {
   y: number
 }
 
+function computeSelectionAnchor(view: EditorView): SelectionAnchor | null {
+  const { from, to } = view.state.selection.main
+  if (from === to) return null
+
+  const coords = view.coordsAtPos(to)
+  if (!coords) return null
+
+  return {
+    x: coords.left,
+    y: coords.top,
+    charCount: to - from,
+  }
+}
+
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { value, onChange, theme = 'system', onSelectionChange, onRequestAiCheck },
+  {
+    value,
+    onChange,
+    theme = 'system',
+    onSelectionChange,
+    onSelectionAnchorChange,
+    onRequestAiCheck,
+    onRequestAiTalk,
+  },
   ref,
 ) {
   const viewRef = useRef<EditorView | null>(null)
@@ -83,14 +113,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const { from, to } = view.state.selection.main
       const hasSelection = from !== to
       onSelectionChange?.(hasSelection, hasSelection ? to - from : 0)
+      onSelectionAnchorChange?.(computeSelectionAnchor(view))
     },
-    [onSelectionChange],
+    [onSelectionChange, onSelectionAnchorChange],
   )
 
   const selectionListener = useMemo(
     () =>
       EditorView.updateListener.of((update) => {
-        if (update.selectionSet && viewRef.current) {
+        if (!viewRef.current) return
+        if (update.selectionSet || update.viewportChanged) {
           notifySelection(update.view)
         }
       }),
@@ -137,6 +169,24 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }), [onChange])
 
   useEffect(() => {
+    const view = viewRef.current
+    if (!view || !onSelectionAnchorChange) return
+
+    function updateAnchor() {
+      if (viewRef.current) {
+        onSelectionAnchorChange(computeSelectionAnchor(viewRef.current))
+      }
+    }
+
+    window.addEventListener('scroll', updateAnchor, true)
+    window.addEventListener('resize', updateAnchor)
+    return () => {
+      window.removeEventListener('scroll', updateAnchor, true)
+      window.removeEventListener('resize', updateAnchor)
+    }
+  }, [onSelectionAnchorChange])
+
+  useEffect(() => {
     if (!contextMenu) return
 
     function closeMenu() {
@@ -153,16 +203,21 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   function handleContextMenu(event: React.MouseEvent) {
     const view = viewRef.current
-    if (!view || !onRequestAiCheck) return
+    if (!view || (!onRequestAiCheck && !onRequestAiTalk)) return
     const { from, to } = view.state.selection.main
     if (from === to) return
     event.preventDefault()
     setContextMenu({ x: event.clientX, y: event.clientY })
   }
 
-  function handleContextMenuAction() {
+  function handleContextMenuCheck() {
     setContextMenu(null)
     onRequestAiCheck?.()
+  }
+
+  function handleContextMenuTalk() {
+    setContextMenu(null)
+    onRequestAiTalk?.()
   }
 
   return (
@@ -189,9 +244,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           style={{ left: contextMenu.x, top: contextMenu.y }}
           role="menu"
         >
-          <button type="button" role="menuitem" onClick={handleContextMenuAction}>
-            AI 检查选区
-          </button>
+          {onRequestAiCheck && (
+            <button type="button" role="menuitem" onClick={handleContextMenuCheck}>
+              AI 检查选区
+            </button>
+          )}
+          {onRequestAiTalk && (
+            <button type="button" role="menuitem" onClick={handleContextMenuTalk}>
+              与 AI 对话
+            </button>
+          )}
         </div>
       )}
     </div>
