@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_PDF_MODE?: 'client' | 'server'
   readonly VITE_PDF_API_URL?: string
+  readonly VITE_AI_API_URL?: string
 }
 
 interface ImportMeta {

@@ -6,9 +6,21 @@ interface ToolbarProps {
   content: string
   onImport: (text: string) => void
   onReset: () => void
+  aiButtonLabel: string
+  aiChecking: boolean
+  aiAvailable: boolean
+  onAiCheck: () => void
 }
 
-export function Toolbar({ content, onImport, onReset }: ToolbarProps) {
+export function Toolbar({
+  content,
+  onImport,
+  onReset,
+  aiButtonLabel,
+  aiChecking,
+  aiAvailable,
+  onAiCheck,
+}: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [exporting, setExporting] = useState(false)
 
@@ -23,7 +35,7 @@ export function Toolbar({ content, onImport, onReset }: ToolbarProps) {
   }
 
   function handlePrint() {
-    printResume()
+    printResume(markdownToHtml(content))
   }
 
   function handleExportMd() {
@@ -71,6 +83,15 @@ export function Toolbar({ content, onImport, onReset }: ToolbarProps) {
         </div>
       </div>
       <div className="toolbar-actions toolbar-actions-primary">
+        <button
+          type="button"
+          className="ai-check"
+          onClick={onAiCheck}
+          disabled={!aiAvailable || aiChecking}
+          title={aiAvailable ? undefined : '后端未连接，AI 检查不可用'}
+        >
+          {aiChecking ? '检查中…' : aiButtonLabel}
+        </button>
         <button type="button" className="primary" onClick={handleExportPdf} disabled={exporting}>
           {exporting ? '导出中…' : '导出 PDF'}
         </button>

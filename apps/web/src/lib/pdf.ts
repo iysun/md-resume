@@ -6,12 +6,19 @@ function getPdfMode(): PdfMode {
   return import.meta.env.VITE_PDF_MODE === 'server' ? 'server' : 'client'
 }
 
+const PRINT_FONT_LINKS = `
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+`
+
 export function buildPrintDocument(bodyHtml: string): string {
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  ${PRINT_FONT_LINKS}
   <style>${resumeCss}</style>
 </head>
 <body>
@@ -44,8 +51,43 @@ async function exportPdfServer(bodyHtml: string, filename = 'resume.pdf'): Promi
   URL.revokeObjectURL(url)
 }
 
-export function printResume(): void {
-  window.print()
+export function printResume(bodyHtml: string): void {
+  const html = buildPrintDocument(bodyHtml)
+  const iframe = document.createElement('iframe')
+  iframe.setAttribute('title', '打印预览')
+  iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden'
+  document.body.appendChild(iframe)
+
+  const frameWindow = iframe.contentWindow
+  if (!frameWindow) {
+    iframe.remove()
+    return
+  }
+
+  const doc = frameWindow.document
+  doc.open()
+  doc.write(html)
+  doc.close()
+
+  const cleanup = () => {
+    setTimeout(() => iframe.remove(), 500)
+  }
+
+  frameWindow.onafterprint = cleanup
+
+  const triggerPrint = () => {
+    // 等待 Web 字体加载后再弹出打印对话框
+    setTimeout(() => {
+      frameWindow.focus()
+      frameWindow.print()
+    }, 300)
+  }
+
+  if (doc.readyState === 'complete') {
+    triggerPrint()
+  } else {
+    frameWindow.addEventListener('load', triggerPrint, { once: true })
+  }
 }
 
 export async function exportPdf(bodyHtml: string, filename = 'resume.pdf'): Promise<void> {
@@ -58,7 +100,7 @@ export async function exportPdf(bodyHtml: string, filename = 'resume.pdf'): Prom
     }
   }
 
-  printResume()
+  printResume(bodyHtml)
 }
 
 export function downloadMarkdown(content: string, filename = 'resume.md'): void {

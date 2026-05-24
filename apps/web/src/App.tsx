@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Editor } from './components/Editor'
 import { Preview } from './components/Preview'
 import { Toolbar } from './components/Toolbar'
+import { AiCheckModal } from './components/AiCheckModal'
+import { useAiCheck } from './hooks/useAiCheck'
+import { checkApiHealth } from './lib/api-health'
 import { loadContent, saveContent, clearContent, loadDefaultTemplate } from './lib/storage'
 import './styles/app.css'
 
@@ -19,7 +22,11 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 export default function App() {
   const [content, setContent] = useState('')
   const [ready, setReady] = useState(false)
+  const [backendAvailable, setBackendAvailable] = useState(false)
+  const editorRef = useRef<import('./components/Editor').EditorHandle>(null)
   const previewMarkdown = useDebouncedValue(content, 300)
+
+  const ai = useAiCheck(content, editorRef, backendAvailable)
 
   useEffect(() => {
     async function init() {
@@ -38,6 +45,23 @@ export default function App() {
     }
     init()
   }, [])
+
+  useEffect(() => {
+    if (!ready) return
+    let cancelled = false
+
+    async function pollHealth() {
+      const ok = await checkApiHealth()
+      if (!cancelled) setBackendAvailable(ok)
+    }
+
+    pollHealth()
+    const timer = window.setInterval(pollHealth, 15000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [ready])
 
   useEffect(() => {
     if (ready) {
@@ -59,6 +83,10 @@ export default function App() {
     }
   }, [])
 
+  const handleOpenAiCheckSelection = useCallback(() => {
+    ai.openCheck('selection')
+  }, [ai])
+
   if (!ready) {
     return (
       <div className="app app-loading">
@@ -69,14 +97,37 @@ export default function App() {
 
   return (
     <div className="app">
-      <Toolbar content={content} onImport={handleImport} onReset={handleReset} />
+      {!backendAvailable && (
+        <div className="backend-banner" role="status">
+          后端未连接，AI 检查不可用。请使用
+          {' '}
+          <code>DEEPSEEK_API_KEY=sk-xxx pnpm dev</code>
+          {' '}
+          启动 API 服务。
+        </div>
+      )}
+      <Toolbar
+        content={content}
+        onImport={handleImport}
+        onReset={handleReset}
+        aiButtonLabel={ai.aiButtonLabel}
+        aiChecking={ai.phase === 'loading'}
+        aiAvailable={ai.backendAvailable}
+        onAiCheck={() => ai.openCheck()}
+      />
       <div className="app-main">
         <section className="pane pane-editor">
           <div className="pane-header">
             <span className="pane-header-dot" aria-hidden="true" />
             Markdown 编辑
           </div>
-          <Editor value={content} onChange={setContent} />
+          <Editor
+            ref={editorRef}
+            value={content}
+            onChange={setContent}
+            onSelectionChange={ai.handleSelectionChange}
+            onRequestAiCheck={handleOpenAiCheckSelection}
+          />
         </section>
         <section className="pane pane-preview">
           <div className="pane-header">
@@ -86,6 +137,20 @@ export default function App() {
           <Preview markdown={previewMarkdown} />
         </section>
       </div>
+      <AiCheckModal
+        open={ai.modalOpen}
+        phase={ai.phase}
+        session={ai.session}
+        result={ai.result}
+        error={ai.error}
+        appliedKeys={ai.appliedKeys}
+        onClose={ai.closeModal}
+        onConfirm={ai.runCheck}
+        onRetry={ai.retryCheck}
+        onCopy={ai.copyItem}
+        onApply={ai.applyItem}
+      />
+      {ai.toast && <div className="app-toast" role="status">{ai.toast}</div>}
     </div>
   )
 }

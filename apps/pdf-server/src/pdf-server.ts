@@ -1,8 +1,10 @@
 import cors from '@fastify/cors'
 import Fastify from 'fastify'
 import puppeteer from 'puppeteer'
+import { runAiCheck } from './ai-check.js'
 
 const PORT = Number(process.env.PDF_PORT) || 3001
+const MAX_AI_TEXT_LENGTH = 32 * 1024
 
 const CHROMIUM_CANDIDATES = [
   process.env.PUPPETEER_EXECUTABLE_PATH,
@@ -32,6 +34,11 @@ async function launchBrowser() {
 }
 
 async function main() {
+  if (!process.env.DEEPSEEK_API_KEY) {
+    console.error('缺少 DEEPSEEK_API_KEY，后端无法启动')
+    process.exit(1)
+  }
+
   const fastify = Fastify({ bodyLimit: 2 * 1024 * 1024 })
 
   await fastify.register(cors, {
@@ -79,10 +86,37 @@ async function main() {
     },
   )
 
+  fastify.post<{ Body: { text?: string; scope?: 'selection' | 'document' } }>(
+    '/api/ai-check',
+    async (request, reply) => {
+      const { text, scope = 'document' } = request.body
+
+      if (!text || typeof text !== 'string' || !text.trim()) {
+        return reply.status(400).send({ error: '缺少 text 字段' })
+      }
+
+      if (text.length > MAX_AI_TEXT_LENGTH) {
+        return reply.status(400).send({ error: `文本过长，上限 ${MAX_AI_TEXT_LENGTH} 字符` })
+      }
+
+      if (scope !== 'selection' && scope !== 'document') {
+        return reply.status(400).send({ error: 'scope 必须为 selection 或 document' })
+      }
+
+      try {
+        const result = await runAiCheck(text, scope)
+        return reply.send(result)
+      } catch (err) {
+        console.error('AI check error:', err)
+        return reply.status(502).send({ error: 'AI 检查失败，请稍后重试' })
+      }
+    },
+  )
+
   fastify.get('/api/health', async () => ({ ok: true }))
 
   await fastify.listen({ port: PORT, host: '0.0.0.0' })
-  console.log(`PDF server listening on http://localhost:${PORT}`)
+  console.log(`API server listening on http://localhost:${PORT}`)
 }
 
 main().catch((err) => {
