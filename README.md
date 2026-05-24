@@ -25,13 +25,9 @@ cp .env.example .env   # 填入 DEEPSEEK_API_KEY
 pnpm dev
 ```
 
-在 `.env` 或 shell 中设置 `DEEPSEEK_API_KEY`，然后启动。浏览器打开 [http://localhost:5173](http://localhost:5173)。
+在 `.env` 中设置 `DEEPSEEK_API_KEY`（也支持 `OPENAI_API_KEY`），然后启动。浏览器打开 [http://localhost:5173](http://localhost:5173)。
 
 `pnpm dev` 会同时启动前端与 API 服务（默认端口 3001）。**AI 检查依赖后端，不可仅启动前端。**
-
-```bash
-DEEPSEEK_API_KEY=sk-xxx pnpm dev
-```
 
 ## 脚本
 
@@ -48,7 +44,7 @@ DEEPSEEK_API_KEY=sk-xxx pnpm dev
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `DEEPSEEK_API_KEY` | — | **必填**，DeepSeek API Key |
+| `DEEPSEEK_API_KEY` | — | **必填**，DeepSeek API Key（别名 `OPENAI_API_KEY`） |
 | `DEEPSEEK_MODEL` | `deepseek-chat` | 模型名称 |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | API 端点 |
 | `PDF_PORT` | `3001` | API 服务端口 |
@@ -130,7 +126,7 @@ md-resume/
 
 **AI 检查按钮不可用？**
 
-确认 API 服务已启动且配置了 `DEEPSEEK_API_KEY`。页面顶部若显示「后端未连接」横幅，请使用 `pnpm dev` 而非 `pnpm dev:web`。
+确认 API 服务已启动且 `.env` 中已配置 `DEEPSEEK_API_KEY`。页面顶部若显示「后端未连接」横幅，请使用 `pnpm dev` 而非 `pnpm dev:web`。
 
 **如何导出 PDF？**
 

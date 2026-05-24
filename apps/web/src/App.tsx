@@ -1,109 +1,117 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Editor } from './components/Editor'
-import { Preview } from './components/Preview'
-import { Toolbar } from './components/Toolbar'
-import { AiCheckModal } from './components/AiCheckModal'
-import { useAiCheck } from './hooks/useAiCheck'
-import { checkApiHealth } from './lib/api-health'
-import { loadContent, saveContent, clearContent, loadDefaultTemplate } from './lib/storage'
-import './styles/app.css'
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Editor } from "./components/Editor";
+import { Preview } from "./components/Preview";
+import { Toolbar } from "./components/Toolbar";
+import { AiCheckModal } from "./components/AiCheckModal";
+import { useAiCheck } from "./hooks/useAiCheck";
+import { checkApiHealth } from "./lib/api-health";
+import {
+  loadContent,
+  saveContent,
+  clearContent,
+  loadDefaultTemplate,
+} from "./lib/storage";
+import "./styles/app.css";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value)
+  const [debounced, setDebounced] = useState(value);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), delayMs)
-    return () => window.clearTimeout(timer)
-  }, [value, delayMs])
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
 
-  return debounced
+  return debounced;
 }
 
 export default function App() {
-  const [content, setContent] = useState('')
-  const [ready, setReady] = useState(false)
-  const [backendAvailable, setBackendAvailable] = useState(false)
-  const editorRef = useRef<import('./components/Editor').EditorHandle>(null)
-  const previewMarkdown = useDebouncedValue(content, 300)
+  const [content, setContent] = useState("");
+  const [ready, setReady] = useState(false);
+  const [backendAvailable, setBackendAvailable] = useState(false);
+  const editorRef = useRef<import("./components/Editor").EditorHandle>(null);
+  const previewMarkdown = useDebouncedValue(content, 300);
 
-  const ai = useAiCheck(content, editorRef, backendAvailable)
+  const ai = useAiCheck(content, editorRef, backendAvailable);
 
   useEffect(() => {
     async function init() {
-      const saved = loadContent()
+      const saved = loadContent();
       if (saved !== null) {
-        setContent(saved)
+        setContent(saved);
       } else {
         try {
-          const template = await loadDefaultTemplate()
-          setContent(template)
+          const template = await loadDefaultTemplate();
+          setContent(template);
         } catch {
-          setContent('# 简历\n\n在此编写你的简历…')
+          setContent("# 简历\n\n在此编写你的简历…");
         }
       }
-      setReady(true)
+      setReady(true);
     }
-    init()
-  }, [])
+    init();
+  }, []);
 
   useEffect(() => {
-    if (!ready) return
-    let cancelled = false
+    if (!ready) return;
+    let cancelled = false;
 
     async function pollHealth() {
-      const ok = await checkApiHealth()
-      if (!cancelled) setBackendAvailable(ok)
+      const ok = await checkApiHealth();
+      if (!cancelled) setBackendAvailable(ok);
     }
 
-    pollHealth()
-    const timer = window.setInterval(pollHealth, 15000)
+    pollHealth();
+    const timer = window.setInterval(pollHealth, 15000);
     return () => {
-      cancelled = true
-      window.clearInterval(timer)
-    }
-  }, [ready])
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [ready]);
 
   useEffect(() => {
     if (ready) {
-      saveContent(content)
+      saveContent(content);
     }
-  }, [content, ready])
+  }, [content, ready]);
 
   const handleImport = useCallback((text: string) => {
-    setContent(text)
-  }, [])
+    setContent(text);
+  }, []);
 
   const handleReset = useCallback(async () => {
-    clearContent()
+    clearContent();
     try {
-      const template = await loadDefaultTemplate()
-      setContent(template)
+      const template = await loadDefaultTemplate();
+      setContent(template);
     } catch {
-      setContent('# 简历\n\n在此编写你的简历…')
+      setContent("# 简历\n\n在此编写你的简历…");
     }
-  }, [])
+  }, []);
 
   const handleOpenAiCheckSelection = useCallback(() => {
-    ai.openCheck('selection')
-  }, [ai])
+    ai.openCheck("selection");
+  }, [ai]);
 
   if (!ready) {
-    return (
-      <div className="app app-loading">
-        加载中…
-      </div>
-    )
+    return <div className="app app-loading">加载中…</div>;
   }
 
   return (
     <div className="app">
       {!backendAvailable && (
         <div className="backend-banner" role="status">
-          后端未连接，AI 检查不可用。请使用
+          后端未连接，AI 检查不可用。请在项目根目录
           {' '}
-          <code>DEEPSEEK_API_KEY=sk-xxx pnpm dev</code>
+          <code>.env</code>
           {' '}
-          启动 API 服务。
+          中配置
+          {' '}
+          <code>DEEPSEEK_API_KEY</code>
+          {' '}
+          后运行
+          {' '}
+          <code>pnpm dev</code>
+          。
         </div>
       )}
       <Toolbar
@@ -111,7 +119,7 @@ export default function App() {
         onImport={handleImport}
         onReset={handleReset}
         aiButtonLabel={ai.aiButtonLabel}
-        aiChecking={ai.phase === 'loading'}
+        aiChecking={ai.phase === "loading"}
         aiAvailable={ai.backendAvailable}
         onAiCheck={() => ai.openCheck()}
       />
@@ -150,7 +158,11 @@ export default function App() {
         onCopy={ai.copyItem}
         onApply={ai.applyItem}
       />
-      {ai.toast && <div className="app-toast" role="status">{ai.toast}</div>}
+      {ai.toast && (
+        <div className="app-toast" role="status">
+          {ai.toast}
+        </div>
+      )}
     </div>
-  )
+  );
 }

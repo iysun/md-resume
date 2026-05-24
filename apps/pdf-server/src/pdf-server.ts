@@ -1,18 +1,22 @@
 import cors from '@fastify/cors'
 import Fastify from 'fastify'
 import puppeteer from 'puppeteer'
+import { AI_API_KEY_ENV_NAMES, getAiApiKey } from './ai-config.js'
 import { runAiCheck } from './ai-check.js'
+import { loadEnvFile } from './load-env.js'
 
-const PORT = Number(process.env.PDF_PORT) || 3001
-const MAX_AI_TEXT_LENGTH = 32 * 1024
+loadEnvFile()
+
+const PORT = Number(process.env.PDF_PORT) || 3001;
+const MAX_AI_TEXT_LENGTH = 32 * 1024;
 
 const CHROMIUM_CANDIDATES = [
   process.env.PUPPETEER_EXECUTABLE_PATH,
-  '/usr/bin/chromium',
-  '/usr/bin/chromium-browser',
-  '/usr/bin/google-chrome',
-  '/usr/bin/google-chrome-stable',
-].filter(Boolean) as string[]
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+].filter(Boolean) as string[];
 
 async function launchBrowser() {
   for (const executablePath of CHROMIUM_CANDIDATES) {
@@ -20,8 +24,8 @@ async function launchBrowser() {
       return await puppeteer.launch({
         headless: true,
         executablePath,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      })
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
     } catch {
       // try next candidate
     }
@@ -29,97 +33,108 @@ async function launchBrowser() {
 
   return puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  })
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
 }
 
 async function main() {
-  if (!process.env.DEEPSEEK_API_KEY) {
-    console.error('缺少 DEEPSEEK_API_KEY，后端无法启动')
+  if (!getAiApiKey()) {
+    console.error(`缺少 ${AI_API_KEY_ENV_NAMES}，后端无法启动`)
+    console.error('请在项目根目录 .env 中配置，或通过环境变量传入')
     process.exit(1)
   }
 
-  const fastify = Fastify({ bodyLimit: 2 * 1024 * 1024 })
+  const fastify = Fastify({ bodyLimit: 2 * 1024 * 1024 });
 
   await fastify.register(cors, {
     origin: (origin, cb) => {
-      if (!origin || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
-        cb(null, true)
+      if (
+        !origin ||
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      ) {
+        cb(null, true);
       } else {
-        cb(new Error('Not allowed by CORS'), false)
+        cb(new Error("Not allowed by CORS"), false);
       }
     },
-  })
+  });
 
   fastify.post<{ Body: { html?: string; filename?: string } }>(
-    '/api/export-pdf',
+    "/api/export-pdf",
     async (request, reply) => {
-      const { html, filename = 'resume.pdf' } = request.body
+      const { html, filename = "resume.pdf" } = request.body;
 
-      if (!html || typeof html !== 'string') {
-        return reply.status(400).send({ error: '缺少 html 字段' })
+      if (!html || typeof html !== "string") {
+        return reply.status(400).send({ error: "缺少 html 字段" });
       }
 
-      let browser
+      let browser;
       try {
-        browser = await launchBrowser()
-        const page = await browser.newPage()
-        await page.setContent(html, { waitUntil: 'load' })
+        browser = await launchBrowser();
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: "load" });
         const pdf = await page.pdf({
-          format: 'A4',
+          format: "A4",
           printBackground: true,
           margin: { top: 0, right: 0, bottom: 0, left: 0 },
-        })
+        });
 
         return reply
-          .header('Content-Type', 'application/pdf')
-          .header('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`)
-          .send(Buffer.from(pdf))
+          .header("Content-Type", "application/pdf")
+          .header(
+            "Content-Disposition",
+            `attachment; filename="${encodeURIComponent(filename)}"`,
+          )
+          .send(Buffer.from(pdf));
       } catch (err) {
-        console.error('PDF export error:', err)
-        return reply.status(500).send({ error: 'PDF 生成失败' })
+        console.error("PDF export error:", err);
+        return reply.status(500).send({ error: "PDF 生成失败" });
       } finally {
         if (browser) {
-          await browser.close()
+          await browser.close();
         }
       }
     },
-  )
+  );
 
-  fastify.post<{ Body: { text?: string; scope?: 'selection' | 'document' } }>(
-    '/api/ai-check',
+  fastify.post<{ Body: { text?: string; scope?: "selection" | "document" } }>(
+    "/api/ai-check",
     async (request, reply) => {
-      const { text, scope = 'document' } = request.body
+      const { text, scope = "document" } = request.body;
 
-      if (!text || typeof text !== 'string' || !text.trim()) {
-        return reply.status(400).send({ error: '缺少 text 字段' })
+      if (!text || typeof text !== "string" || !text.trim()) {
+        return reply.status(400).send({ error: "缺少 text 字段" });
       }
 
       if (text.length > MAX_AI_TEXT_LENGTH) {
-        return reply.status(400).send({ error: `文本过长，上限 ${MAX_AI_TEXT_LENGTH} 字符` })
+        return reply
+          .status(400)
+          .send({ error: `文本过长，上限 ${MAX_AI_TEXT_LENGTH} 字符` });
       }
 
-      if (scope !== 'selection' && scope !== 'document') {
-        return reply.status(400).send({ error: 'scope 必须为 selection 或 document' })
+      if (scope !== "selection" && scope !== "document") {
+        return reply
+          .status(400)
+          .send({ error: "scope 必须为 selection 或 document" });
       }
 
       try {
-        const result = await runAiCheck(text, scope)
-        return reply.send(result)
+        const result = await runAiCheck(text, scope);
+        return reply.send(result);
       } catch (err) {
-        console.error('AI check error:', err)
-        return reply.status(502).send({ error: 'AI 检查失败，请稍后重试' })
+        console.error("AI check error:", err);
+        return reply.status(502).send({ error: "AI 检查失败，请稍后重试" });
       }
     },
-  )
+  );
 
-  fastify.get('/api/health', async () => ({ ok: true }))
+  fastify.get("/api/health", async () => ({ ok: true }));
 
-  await fastify.listen({ port: PORT, host: '0.0.0.0' })
-  console.log(`API server listening on http://localhost:${PORT}`)
+  await fastify.listen({ port: PORT, host: "0.0.0.0" });
+  console.log(`API server listening on http://localhost:${PORT}`);
 }
 
 main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+  console.error(err);
+  process.exit(1);
+});
