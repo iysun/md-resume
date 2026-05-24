@@ -8,14 +8,6 @@ export function loadContent(): string | null {
   }
 }
 
-export function saveContent(content: string): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, content)
-  } catch {
-    // ignore quota errors
-  }
-}
-
 export function clearContent(): void {
   try {
     localStorage.removeItem(STORAGE_KEY)

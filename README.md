@@ -5,14 +5,15 @@
 ## 功能
 
 - 左侧 Markdown 编辑，右侧实时 HTML 预览（300ms 防抖）
-- 内容自动保存到浏览器 localStorage
-- **AI 检查**：支持选区或全文，结构化建议，逐条复制 / 一键替换
+- 内容自动保存到 SQLite（经后端 API），支持多文档管理
+- **AI 检查**：支持选区或全文，结构化建议，逐条复制 / 一键替换，历史记录持久化
+- 主题偏好（系统 / 浅色 / 深色）持久化
 - 导出 PDF（默认浏览器打印；可选 Puppeteer 服务端一键下载）
 - 导入 / 导出 `.md` 文件
 
 ## 环境要求
 
-- Node.js 18+
+- Node.js 22.5+（后端使用内置 `node:sqlite`）
 - pnpm
 - DeepSeek API Key（AI 检查必需）
 
@@ -39,6 +40,9 @@ pnpm dev
 | `pnpm build` | 构建前端静态资源 |
 | `pnpm preview` | 预览构建产物 |
 | `pnpm lint` | 全仓库 lint |
+| `pnpm --filter pdf-server db:generate` | 修改 schema 后生成 migration |
+| `pnpm --filter pdf-server db:migrate` | 执行 migration |
+| `pnpm --filter pdf-server db:studio` | 打开 Drizzle Studio |
 
 ## 环境变量
 
@@ -48,6 +52,7 @@ pnpm dev
 | `DEEPSEEK_MODEL` | `deepseek-chat` | 模型名称 |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | API 端点 |
 | `PDF_PORT` | `3001` | API 服务端口 |
+| `DATABASE_PATH` | `./data/md-resume.db` | SQLite 数据库文件路径 |
 | `VITE_PDF_MODE` | `client` | `client` = 浏览器打印；`server` = Puppeteer 一键下载 |
 | `VITE_PDF_API_URL` | `/api/export-pdf` | 生产环境 PDF API 地址 |
 | `VITE_AI_API_URL` | `/api/ai-check` | 生产环境 AI API 地址 |

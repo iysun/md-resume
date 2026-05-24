@@ -1,20 +1,31 @@
 import { useEffect } from 'react'
 import type { AiCheckItem } from '../lib/ai-check'
-import type { AiCheckModalPhase, AiCheckSession } from '../hooks/useAiCheck'
+import type { AiCheckModalPhase, AiCheckModalTab, AiCheckSession } from '../hooks/useAiCheck'
+import type { AiCheckDetail, AiCheckSummary } from '../lib/api/types'
 import type { AiCheckResult } from '../lib/ai-check'
+import { AiCheckHistory } from './AiCheckHistory'
 
 interface AiCheckModalProps {
   open: boolean
+  tab: AiCheckModalTab
+  onTabChange: (tab: AiCheckModalTab) => void
   phase: AiCheckModalPhase
   session: AiCheckSession | null
   result: AiCheckResult | null
   error: string | null
   appliedKeys: Set<string>
+  history: AiCheckSummary[]
+  historyLoading: boolean
+  historyError: string | null
+  selectedHistory: AiCheckDetail | null
   onClose: () => void
   onConfirm: () => void
   onRetry: () => void
   onCopy: (text: string) => void
   onApply: (itemKey: string, original: string, suggestion: string) => void
+  onSelectHistory: (id: string) => void
+  onBackHistory: () => void
+  onDeleteHistory: (id: string) => void
 }
 
 const CATEGORY_LABELS: Record<AiCheckItem['category'], string> = {
@@ -41,16 +52,25 @@ function groupItems(items: AiCheckItem[]) {
 
 export function AiCheckModal({
   open,
+  tab,
+  onTabChange,
   phase,
   session,
   result,
   error,
   appliedKeys,
+  history,
+  historyLoading,
+  historyError,
+  selectedHistory,
   onClose,
   onConfirm,
   onRetry,
   onCopy,
   onApply,
+  onSelectHistory,
+  onBackHistory,
+  onDeleteHistory,
 }: AiCheckModalProps) {
   useEffect(() => {
     if (!open) return
@@ -64,7 +84,7 @@ export function AiCheckModal({
   if (!open || !session) return null
 
   const scopeLabel = session.scope === 'selection' ? '选区' : '全文'
-  const title = `AI 检查 · ${scopeLabel}`
+  const title = tab === 'history' ? 'AI 检查 · 历史记录' : `AI 检查 · ${scopeLabel}`
 
   return (
     <div className="ai-modal-overlay" onClick={onClose} role="presentation">
@@ -82,123 +102,165 @@ export function AiCheckModal({
           </button>
         </header>
 
+        <div className="ai-modal-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'check'}
+            className={tab === 'check' ? 'active' : undefined}
+            onClick={() => onTabChange('check')}
+          >
+            当前检查
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'history'}
+            className={tab === 'history' ? 'active' : undefined}
+            onClick={() => onTabChange('history')}
+          >
+            历史记录
+          </button>
+        </div>
+
         <div className="ai-modal-body">
-          {phase === 'confirm' && (
-            <div className="ai-modal-confirm">
-              <p className="ai-modal-confirm-desc">即将检查以下内容，确认后开始请求 AI。</p>
-              <dl className="ai-modal-meta">
-                <div>
-                  <dt>字数</dt>
-                  <dd>{session.preview.charCount}</dd>
+          {tab === 'history' ? (
+            <AiCheckHistory
+              history={history}
+              loading={historyLoading}
+              error={historyError}
+              selected={selectedHistory}
+              onSelect={onSelectHistory}
+              onBack={onBackHistory}
+              onDelete={onDeleteHistory}
+              onCopy={onCopy}
+            />
+          ) : (
+            <>
+              {phase === 'confirm' && (
+                <div className="ai-modal-confirm">
+                  <p className="ai-modal-confirm-desc">即将检查以下内容，确认后开始请求 AI。</p>
+                  <dl className="ai-modal-meta">
+                    <div>
+                      <dt>字数</dt>
+                      <dd>{session.preview.charCount}</dd>
+                    </div>
+                    {session.preview.lineRange && (
+                      <div>
+                        <dt>行号</dt>
+                        <dd>
+                          {session.preview.lineRange.from}
+                          {' '}
+                          –
+                          {' '}
+                          {session.preview.lineRange.to}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                  <pre className="ai-modal-excerpt">{session.preview.excerpt}</pre>
                 </div>
-                {session.preview.lineRange && (
-                  <div>
-                    <dt>行号</dt>
-                    <dd>
-                      {session.preview.lineRange.from}
-                      {' '}
-                      –
-                      {' '}
-                      {session.preview.lineRange.to}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-              <pre className="ai-modal-excerpt">{session.preview.excerpt}</pre>
-            </div>
-          )}
-
-          {phase === 'loading' && (
-            <div className="ai-modal-loading">
-              <div className="ai-modal-spinner" aria-hidden="true" />
-              <p>AI 正在分析{scopeLabel}内容…</p>
-            </div>
-          )}
-
-          {phase === 'error' && (
-            <div className="ai-modal-error">
-              <p>{error ?? '检查失败'}</p>
-            </div>
-          )}
-
-          {phase === 'result' && result && (
-            <div className="ai-modal-result">
-              <p className="ai-modal-summary">{result.summary}</p>
-              {result.items.length === 0 ? (
-                <p className="ai-modal-empty">未发现需要改进的问题。</p>
-              ) : (
-                groupItems(result.items).map(({ category, items }) => (
-                  <section key={category} className="ai-modal-group">
-                    <h3 className={`ai-modal-group-title ai-cat-${category}`}>
-                      {CATEGORY_LABELS[category]}
-                    </h3>
-                    <ul className="ai-modal-items">
-                      {items.map((item, index) => {
-                        const itemKey = `${category}-${index}-${item.title}`
-                        const canApply = Boolean(item.original && item.suggestion)
-                        const applied = appliedKeys.has(itemKey)
-                        return (
-                          <li key={itemKey} className="ai-modal-item">
-                            <div className="ai-modal-item-head">
-                              <strong>{item.title}</strong>
-                              {applied && <span className="ai-modal-applied">已应用</span>}
-                            </div>
-                            <p className="ai-modal-item-detail">{item.detail}</p>
-                            {item.original && (
-                              <div className="ai-modal-diff">
-                                <span className="ai-modal-diff-label">原文</span>
-                                <code>{item.original}</code>
-                              </div>
-                            )}
-                            {item.suggestion && (
-                              <div className="ai-modal-diff ai-modal-diff-suggestion">
-                                <span className="ai-modal-diff-label">建议</span>
-                                <code>{item.suggestion}</code>
-                              </div>
-                            )}
-                            <div className="ai-modal-item-actions">
-                              <button
-                                type="button"
-                                onClick={() => onCopy(item.suggestion ?? item.detail)}
-                              >
-                                复制
-                              </button>
-                              {canApply && (
-                                <button
-                                  type="button"
-                                  className="primary"
-                                  disabled={applied}
-                                  onClick={() => onApply(itemKey, item.original!, item.suggestion!)}
-                                >
-                                  替换
-                                </button>
-                              )}
-                            </div>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </section>
-                ))
               )}
-            </div>
+
+              {phase === 'loading' && (
+                <div className="ai-modal-loading">
+                  <div className="ai-modal-spinner" aria-hidden="true" />
+                  <p>AI 正在分析{scopeLabel}内容…</p>
+                </div>
+              )}
+
+              {phase === 'error' && (
+                <div className="ai-modal-error">
+                  <p>{error ?? '检查失败'}</p>
+                </div>
+              )}
+
+              {phase === 'result' && result && (
+                <div className="ai-modal-result">
+                  <p className="ai-modal-summary">{result.summary}</p>
+                  {result.items.length === 0 ? (
+                    <p className="ai-modal-empty">未发现需要改进的问题。</p>
+                  ) : (
+                    groupItems(result.items).map(({ category, items }) => (
+                      <section key={category} className="ai-modal-group">
+                        <h3 className={`ai-modal-group-title ai-cat-${category}`}>
+                          {CATEGORY_LABELS[category]}
+                        </h3>
+                        <ul className="ai-modal-items">
+                          {items.map((item, index) => {
+                            const itemKey = `${category}-${index}-${item.title}`
+                            const canApply = Boolean(item.original && item.suggestion)
+                            const applied = appliedKeys.has(itemKey)
+                            return (
+                              <li key={itemKey} className="ai-modal-item">
+                                <div className="ai-modal-item-head">
+                                  <strong>{item.title}</strong>
+                                  {applied && <span className="ai-modal-applied">已应用</span>}
+                                </div>
+                                <p className="ai-modal-item-detail">{item.detail}</p>
+                                {item.original && (
+                                  <div className="ai-modal-diff">
+                                    <span className="ai-modal-diff-label">原文</span>
+                                    <code>{item.original}</code>
+                                  </div>
+                                )}
+                                {item.suggestion && (
+                                  <div className="ai-modal-diff ai-modal-diff-suggestion">
+                                    <span className="ai-modal-diff-label">建议</span>
+                                    <code>{item.suggestion}</code>
+                                  </div>
+                                )}
+                                <div className="ai-modal-item-actions">
+                                  <button
+                                    type="button"
+                                    onClick={() => onCopy(item.suggestion ?? item.detail)}
+                                  >
+                                    复制
+                                  </button>
+                                  {canApply && (
+                                    <button
+                                      type="button"
+                                      className="primary"
+                                      disabled={applied}
+                                      onClick={() => onApply(itemKey, item.original!, item.suggestion!)}
+                                    >
+                                      替换
+                                    </button>
+                                  )}
+                                </div>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </section>
+                    ))
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
 
         <footer className="ai-modal-footer">
-          {phase === 'confirm' && (
+          {tab === 'history' ? (
+            <button type="button" className="primary" onClick={onClose}>关闭</button>
+          ) : (
             <>
-              <button type="button" onClick={onClose}>取消</button>
-              <button type="button" className="primary" onClick={onConfirm}>开始检查</button>
-            </>
-          )}
-          {phase === 'loading' && (
-            <button type="button" disabled>检查中…</button>
-          )}
-          {(phase === 'result' || phase === 'error') && (
-            <>
-              <button type="button" onClick={onRetry}>重新检查</button>
-              <button type="button" className="primary" onClick={onClose}>关闭</button>
+              {phase === 'confirm' && (
+                <>
+                  <button type="button" onClick={onClose}>取消</button>
+                  <button type="button" className="primary" onClick={onConfirm}>开始检查</button>
+                </>
+              )}
+              {phase === 'loading' && (
+                <button type="button" disabled>检查中…</button>
+              )}
+              {(phase === 'result' || phase === 'error') && (
+                <>
+                  <button type="button" onClick={onRetry}>重新检查</button>
+                  <button type="button" className="primary" onClick={onClose}>关闭</button>
+                </>
+              )}
             </>
           )}
         </footer>

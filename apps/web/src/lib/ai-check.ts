@@ -16,13 +16,14 @@ export interface AiCheckResult {
 export async function checkMarkdown(
   text: string,
   scope: AiCheckScope,
+  documentId?: string,
 ): Promise<AiCheckResult> {
   const apiUrl = import.meta.env.VITE_AI_API_URL || '/api/ai-check'
 
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, scope }),
+    body: JSON.stringify({ text, scope, documentId }),
   })
 
   if (!response.ok) {

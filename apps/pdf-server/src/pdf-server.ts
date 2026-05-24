@@ -4,6 +4,13 @@ import puppeteer from 'puppeteer'
 import { AI_API_KEY_ENV_NAMES, getAiApiKey } from './ai-config.js'
 import { runAiCheck } from './ai-check.js'
 import { loadEnvFile } from './load-env.js'
+import { runMigrations } from './db/migrate.js'
+import { registerDocumentRoutes } from './routes/documents.js'
+import { registerSettingsRoutes } from './routes/settings.js'
+import {
+  registerAiCheckHistoryRoutes,
+  saveAiCheckHistory,
+} from './routes/ai-checks.js'
 
 loadEnvFile()
 
@@ -45,6 +52,8 @@ async function main() {
   }
 
   const fastify = Fastify({ bodyLimit: 2 * 1024 * 1024 });
+
+  runMigrations();
 
   await fastify.register(cors, {
     origin: (origin, cb) => {
@@ -97,10 +106,16 @@ async function main() {
     },
   );
 
-  fastify.post<{ Body: { text?: string; scope?: "selection" | "document" } }>(
+  fastify.post<{
+    Body: {
+      text?: string
+      scope?: 'selection' | 'document'
+      documentId?: string
+    }
+  }>(
     "/api/ai-check",
     async (request, reply) => {
-      const { text, scope = "document" } = request.body;
+      const { text, scope = "document", documentId } = request.body;
 
       if (!text || typeof text !== "string" || !text.trim()) {
         return reply.status(400).send({ error: "缺少 text 字段" });
@@ -120,6 +135,9 @@ async function main() {
 
       try {
         const result = await runAiCheck(text, scope);
+        if (documentId && typeof documentId === "string") {
+          saveAiCheckHistory(documentId, scope, text, result);
+        }
         return reply.send(result);
       } catch (err) {
         console.error("AI check error:", err);
@@ -129,6 +147,10 @@ async function main() {
   );
 
   fastify.get("/api/health", async () => ({ ok: true }));
+
+  await registerDocumentRoutes(fastify);
+  await registerSettingsRoutes(fastify);
+  await registerAiCheckHistoryRoutes(fastify);
 
   await fastify.listen({ port: PORT, host: "0.0.0.0" });
   console.log(`API server listening on http://localhost:${PORT}`);

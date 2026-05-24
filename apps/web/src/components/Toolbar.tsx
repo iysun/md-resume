@@ -1,25 +1,50 @@
 import { useRef, useState } from 'react'
+import type { DocumentSummary, ThemeSetting } from '../lib/api/types'
 import { markdownToHtml } from '../lib/markdown'
 import { exportPdf, downloadMarkdown, printResume } from '../lib/pdf'
 
 interface ToolbarProps {
   content: string
+  documents: DocumentSummary[]
+  activeDocumentId: string | null
+  theme: ThemeSetting
+  loadingDocument: boolean
   onImport: (text: string) => void
   onReset: () => void
+  onCreateDocument: () => void
+  onDeleteDocument: () => void
+  onSwitchDocument: (id: string) => void
+  onThemeChange: (theme: ThemeSetting) => void
   aiButtonLabel: string
   aiChecking: boolean
   aiAvailable: boolean
   onAiCheck: () => void
+  onAiHistory: () => void
 }
+
+const THEME_OPTIONS: { value: ThemeSetting; label: string }[] = [
+  { value: 'system', label: '系统' },
+  { value: 'light', label: '浅色' },
+  { value: 'dark', label: '深色' },
+]
 
 export function Toolbar({
   content,
+  documents,
+  activeDocumentId,
+  theme,
+  loadingDocument,
   onImport,
   onReset,
+  onCreateDocument,
+  onDeleteDocument,
+  onSwitchDocument,
+  onThemeChange,
   aiButtonLabel,
   aiChecking,
   aiAvailable,
   onAiCheck,
+  onAiHistory,
 }: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [exporting, setExporting] = useState(false)
@@ -82,6 +107,53 @@ export function Toolbar({
           <span className="toolbar-subtitle">实时预览 · 自动保存</span>
         </div>
       </div>
+
+      <div className="toolbar-documents">
+        <label className="toolbar-doc-label" htmlFor="document-select">文档</label>
+        <select
+          id="document-select"
+          className="toolbar-doc-select"
+          value={activeDocumentId ?? ''}
+          disabled={loadingDocument}
+          onChange={(event) => onSwitchDocument(event.target.value)}
+        >
+          {documents.map((document) => (
+            <option key={document.id} value={document.id}>
+              {document.title}
+            </option>
+          ))}
+        </select>
+        <button type="button" disabled={loadingDocument} onClick={onCreateDocument}>
+          新建
+        </button>
+        <button
+          type="button"
+          className="danger"
+          disabled={loadingDocument || documents.length <= 1}
+          onClick={onDeleteDocument}
+        >
+          删除
+        </button>
+      </div>
+
+      <div className="toolbar-divider" aria-hidden="true" />
+
+      <div className="toolbar-theme">
+        <span className="toolbar-doc-label">主题</span>
+        {THEME_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={theme === option.value ? 'active' : undefined}
+            onClick={() => onThemeChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="toolbar-divider" aria-hidden="true" />
+
       <div className="toolbar-actions toolbar-actions-primary">
         <button
           type="button"
@@ -91,6 +163,13 @@ export function Toolbar({
           title={aiAvailable ? undefined : '后端未连接，AI 检查不可用'}
         >
           {aiChecking ? '检查中…' : aiButtonLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onAiHistory}
+          disabled={!aiAvailable}
+        >
+          AI 历史
         </button>
         <button type="button" className="primary" onClick={handleExportPdf} disabled={exporting}>
           {exporting ? '导出中…' : '导出 PDF'}

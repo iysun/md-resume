@@ -4,11 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer tsx src/pdf-server.ts",
-    "lint": "eslint ."
+    "dev": "NODE_OPTIONS='--experimental-sqlite' PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer tsx src/pdf-server.ts",
+    "lint": "eslint .",
+    "db:generate": "NODE_OPTIONS='--experimental-sqlite' drizzle-kit generate",
+    "db:migrate": "NODE_OPTIONS='--experimental-sqlite' drizzle-kit migrate",
+    "db:studio": "NODE_OPTIONS='--experimental-sqlite' drizzle-kit studio"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
+    "drizzle-orm": "1.0.0-rc.3",
     "fastify": "^5.3.3",
     "openai": "^4.104.0",
     "puppeteer": "^25.0.4",
@@ -19,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.12.3",
+    "drizzle-kit": "1.0.0-rc.3",
     "typescript": "~6.0.2"
   },
   "postinstall": "if [ \"$PDF_SERVER\" = \"1\" ]; then PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer npx puppeteer browsers install chrome || true; fi"

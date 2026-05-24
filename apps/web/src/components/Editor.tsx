@@ -31,9 +31,12 @@ export interface EditorHandle {
   ) => boolean
 }
 
+import type { ThemeSetting } from '../lib/api/types'
+
 interface EditorProps {
   value: string
   onChange: (value: string) => void
+  theme?: ThemeSetting
   onSelectionChange?: (hasSelection: boolean, charCount: number) => void
   onRequestAiCheck?: () => void
 }
@@ -44,13 +47,36 @@ interface ContextMenuState {
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { value, onChange, onSelectionChange, onRequestAiCheck },
+  { value, onChange, theme = 'system', onSelectionChange, onRequestAiCheck },
   ref,
 ) {
   const viewRef = useRef<EditorView | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
-  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const [resolvedDark, setResolvedDark] = useState(() => {
+    if (theme === 'dark') return true
+    if (theme === 'light') return false
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      setResolvedDark(true)
+      return
+    }
+    if (theme === 'light') {
+      setResolvedDark(false)
+      return
+    }
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    function handleChange() {
+      setResolvedDark(media.matches)
+    }
+    handleChange()
+    media.addEventListener('change', handleChange)
+    return () => media.removeEventListener('change', handleChange)
+  }, [theme])
 
   const notifySelection = useCallback(
     (view: EditorView) => {
@@ -145,7 +171,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         value={value}
         height="100%"
         extensions={extensions}
-        theme={isDark ? oneDark : 'light'}
+        theme={resolvedDark ? oneDark : 'light'}
         onChange={onChange}
         onCreateEditor={(view) => {
           viewRef.current = view
