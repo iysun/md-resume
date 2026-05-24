@@ -12,36 +12,38 @@
 ## 环境要求
 
 - Node.js 18+
+- pnpm
 
 ## 安装与运行
 
 ```bash
 cd md-resume
-npm install
-npm run dev:web
+pnpm install
+pnpm dev:web
 ```
 
 浏览器打开终端显示的地址（默认 [http://localhost:5173](http://localhost:5173)）。
 
-**默认无需启动后端**，`npm run dev:web` 即可完整使用所有功能。点击「导出 PDF」会打开浏览器打印对话框，选择「另存为 PDF」即可保存。
+**默认无需启动后端**，`pnpm dev:web` 即可完整使用所有功能。点击「导出 PDF」会打开浏览器打印对话框，选择「另存为 PDF」即可保存。
 
 ## 纯静态部署
 
 ```bash
-npm run build
+pnpm build
 ```
 
-将 `dist/` 目录部署到任意静态托管（Nginx、GitHub Pages 等），无需 PDF 服务。
+将 `apps/web/dist/` 目录部署到任意静态托管（Nginx、GitHub Pages 等），无需 PDF 服务。
 
 ## 脚本
 
 | 命令 | 说明 |
 |------|------|
-| `npm run dev:web` | 启动前端（推荐，功能完整） |
-| `npm run dev` | 启动前端 + 可选 PDF 服务 |
-| `npm run dev:pdf` | 仅启动 Puppeteer PDF 服务 |
-| `npm run build` | 构建前端静态资源 |
-| `npm run preview` | 预览构建产物 |
+| `pnpm dev:web` | 启动前端（推荐，功能完整） |
+| `pnpm dev` | 启动前端 + 可选 PDF 服务 |
+| `pnpm dev:pdf` | 仅启动 Puppeteer PDF 服务 |
+| `pnpm build` | 构建前端静态资源 |
+| `pnpm preview` | 预览构建产物 |
+| `pnpm lint` | 全仓库 lint |
 
 ## 可选：Puppeteer 服务端 PDF
 
@@ -50,7 +52,7 @@ npm run build
 1. 安装 Chrome（首次）：
 
 ```bash
-PDF_SERVER=1 npm install
+PDF_SERVER=1 pnpm install
 # 或手动：
 PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer npx puppeteer browsers install chrome
 ```
@@ -58,14 +60,14 @@ PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer npx puppeteer browsers install chrome
 2. 设置环境变量并启动：
 
 ```bash
-VITE_PDF_MODE=server npm run dev
+VITE_PDF_MODE=server pnpm dev
 ```
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `VITE_PDF_MODE` | `client` | `client` = 浏览器打印；`server` = Puppeteer 一键下载 |
 | `VITE_PDF_API_URL` | `/api/export-pdf` | 生产环境自定义 API 地址 |
-| `PDF_SERVER` | — | 设为 `1` 时 `npm install` 会下载 Puppeteer Chrome |
+| `PDF_SERVER` | — | 设为 `1` 时 `pnpm install` 会下载 Puppeteer Chrome |
 
 Linux 服务端建议安装中文字体：
 
@@ -99,12 +101,16 @@ sudo apt install fonts-noto-cjk
 
 ```
 md-resume/
-├── public/templates/   # 默认简历模板
-├── server/             # 可选 Puppeteer PDF 服务
-└── src/
-    ├── components/     # 编辑器、预览、工具栏
-    ├── lib/            # Markdown 解析、存储、PDF
-    └── styles/         # 布局与简历排版 CSS
+├── apps/
+│   ├── web/                # React 前端（Vite）
+│   │   ├── public/templates/   # 默认简历模板
+│   │   └── src/
+│   │       ├── components/     # 编辑器、预览、工具栏
+│   │       ├── lib/            # Markdown 解析、存储、PDF
+│   │       └── styles/         # 布局与简历排版 CSS
+│   └── pdf-server/         # 可选 Puppeteer PDF 服务
+├── pnpm-workspace.yaml
+└── package.json            # 根 orchestration 脚本
 ```
 
 ## 常见问题
@@ -115,7 +121,7 @@ md-resume/
 
 **想要一键下载 PDF 文件？**
 
-设置 `VITE_PDF_MODE=server` 并启动 PDF 服务（`npm run dev:pdf` 或 `npm run dev`）。
+设置 `VITE_PDF_MODE=server` 并启动 PDF 服务（`pnpm dev:pdf` 或 `pnpm dev`）。
 
 **Puppeteer 导出失败？**
 

@@ -20,7 +20,3 @@ export function Preview({ markdown }: PreviewProps) {
     </div>
   )
 }
-
-export function getPreviewHtml(markdown: string): string {
-  return markdownToHtml(markdown)
-}

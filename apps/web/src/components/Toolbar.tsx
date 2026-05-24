@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
+import { markdownToHtml } from '../lib/markdown'
 import { exportPdf, downloadMarkdown, printResume } from '../lib/pdf'
-import { getPreviewHtml } from './Preview'
 
 interface ToolbarProps {
   content: string
@@ -15,7 +15,7 @@ export function Toolbar({ content, onImport, onReset }: ToolbarProps) {
   async function handleExportPdf() {
     setExporting(true)
     try {
-      const bodyHtml = getPreviewHtml(content)
+      const bodyHtml = markdownToHtml(content)
       await exportPdf(bodyHtml)
     } finally {
       setExporting(false)

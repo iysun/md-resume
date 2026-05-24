@@ -1,0 +1,26 @@
+{
+  "name": "pdf-server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer tsx src/pdf-server.ts",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "puppeteer": "^25.0.4",
+    "tsx": "^4.22.3"
+  },
+  "optionalDependencies": {
+    "puppeteer-core": "^25.0.4"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.12.3",
+    "typescript": "~6.0.2"
+  },
+  "postinstall": "if [ \"$PDF_SERVER\" = \"1\" ]; then PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer npx puppeteer browsers install chrome || true; fi"
+}
