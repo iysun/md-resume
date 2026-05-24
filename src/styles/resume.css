@@ -1,54 +1,95 @@
 @page {
   size: A4;
-  margin: 12mm;
+  margin: 0;
 }
 
 .resume {
-  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  font-size: 11pt;
-  line-height: 1.5;
-  color: #1a1a1a;
+  --resume-text: #171717;
+  --resume-body: #404040;
+  --resume-muted: #737373;
+  --resume-faint: #a3a3a3;
+  --resume-line: #e5e5e5;
+  --resume-link: #171717;
+
+  font-family: "Noto Sans SC", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.65;
+  color: var(--resume-body);
   max-width: 210mm;
   margin: 0 auto;
-  padding: 16mm 14mm;
+  padding: 20mm 22mm;
   background: #fff;
   box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
 }
+
+/* ── 页眉：姓名 + 联系方式 ── */
 
 .resume h1 {
   font-size: 22pt;
-  font-weight: 700;
-  margin: 0 0 6px;
-  letter-spacing: 0.02em;
-  color: #111;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--resume-text);
+  margin: 0 0 8px;
+  line-height: 1.15;
+}
+
+.resume h1 + p {
+  font-size: 9pt;
+  line-height: 1.8;
+  color: var(--resume-muted);
+  margin: 0 0 24px;
+}
+
+.resume h1 + p strong {
+  font-weight: 400;
+  color: var(--resume-faint);
 }
 
 .resume hr {
-  border: none;
-  border-top: 1px solid #ddd;
-  margin: 10px 0 14px;
+  display: none;
 }
 
+/* ── 分节标题 ── */
+
 .resume h2 {
-  font-size: 12pt;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #222;
-  border-bottom: 1.5px solid #333;
-  padding-bottom: 3px;
-  margin: 18px 0 10px;
+  font-size: 8.5pt;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--resume-muted);
+  border: none;
+  border-bottom: 1px solid var(--resume-line);
+  padding: 0 0 5px;
+  margin: 26px 0 12px;
+  background: none;
 }
 
 .resume h2:first-of-type {
-  margin-top: 8px;
+  margin-top: 0;
 }
 
+/* ── 条目：标题 + 日期同行 ── */
+
 .resume h3 {
-  font-size: 11pt;
+  font-size: 10.5pt;
   font-weight: 600;
-  margin: 10px 0 2px;
-  color: #111;
+  color: var(--resume-text);
+  margin: 14px 0 0;
+  padding: 0 120px 0 0;
+  border: none;
+  line-height: 1.4;
+}
+
+.resume h3 + em {
+  display: block;
+  float: right;
+  margin-top: -1.5em;
+  font-size: 9pt;
+  font-weight: 400;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  color: var(--resume-muted);
+  letter-spacing: 0.01em;
 }
 
 .resume p {
@@ -57,26 +98,128 @@
 
 .resume em {
   font-style: normal;
-  font-size: 10pt;
-  color: #555;
 }
 
-.resume ul {
-  margin: 4px 0 8px;
-  padding-left: 18px;
+/* ── 列表 ── */
+
+.resume ul,
+.resume ol {
+  margin: 5px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.resume li {
-  margin-bottom: 3px;
+.resume ul li,
+.resume ol li {
+  position: relative;
+  padding-left: 14px;
+  margin-bottom: 2px;
+  line-height: 1.6;
+  font-size: 10.5pt;
+  color: var(--resume-body);
 }
+
+.resume ul li::before {
+  content: "–";
+  position: absolute;
+  left: 0;
+  color: var(--resume-faint);
+}
+
+.resume ol {
+  counter-reset: resume-ol;
+}
+
+.resume ol li {
+  counter-increment: resume-ol;
+}
+
+.resume ol li::before {
+  content: counter(resume-ol) ".";
+  position: absolute;
+  left: 0;
+  color: var(--resume-muted);
+  font-size: 9.5pt;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 条目块结束后清除浮动 */
+.resume h3 + em + ul,
+.resume h3 + em + ol,
+.resume h3 + em + p,
+.resume h3 + ul,
+.resume h3 + ol,
+.resume h3 + p {
+  clear: both;
+}
+
+/* ── 技能区：双列、无符号 ── */
+
+.resume h2:has(+ ul > li:first-child strong) + ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 36px;
+  margin-top: 2px;
+}
+
+.resume h2:has(+ ul > li:first-child strong) + ul li {
+  padding-left: 0;
+  margin-bottom: 1px;
+}
+
+.resume h2:has(+ ul > li:first-child strong) + ul li::before {
+  content: none;
+}
+
+/* ── 行内元素 ── */
 
 .resume strong {
   font-weight: 600;
+  color: var(--resume-text);
 }
 
 .resume a {
-  color: #1a56db;
+  color: var(--resume-link);
   text-decoration: none;
+  border-bottom: 1px solid var(--resume-line);
+  transition: border-color 0.15s;
+}
+
+.resume a:hover {
+  border-bottom-color: var(--resume-muted);
+}
+
+.resume blockquote {
+  margin: 8px 0;
+  padding: 0 0 0 12px;
+  border-left: 2px solid var(--resume-line);
+  color: var(--resume-muted);
+  background: none;
+}
+
+.resume code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.88em;
+  padding: 1px 4px;
+  background: #fafafa;
+  border: 1px solid var(--resume-line);
+  border-radius: 2px;
+  color: var(--resume-body);
+}
+
+.resume pre {
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: #fafafa;
+  border: 1px solid var(--resume-line);
+  border-radius: 2px;
+  overflow-x: auto;
+}
+
+.resume pre code {
+  padding: 0;
+  background: none;
+  border: none;
 }
 
 @media print {
@@ -87,8 +230,12 @@
   }
 
   .resume {
-    box-shadow: none;
-    padding: 0;
+    padding: 20mm 22mm;
     max-width: none;
+  }
+
+  .resume a {
+    color: var(--resume-link);
+    border-bottom-color: var(--resume-line);
   }
 }

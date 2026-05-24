@@ -61,7 +61,7 @@ export default function App() {
 
   if (!ready) {
     return (
-      <div className="app" style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <div className="app app-loading">
         加载中…
       </div>
     )
@@ -72,11 +72,17 @@ export default function App() {
       <Toolbar content={content} onImport={handleImport} onReset={handleReset} />
       <div className="app-main">
         <section className="pane pane-editor">
-          <div className="pane-header">Markdown 编辑</div>
+          <div className="pane-header">
+            <span className="pane-header-dot" aria-hidden="true" />
+            Markdown 编辑
+          </div>
           <Editor value={content} onChange={setContent} />
         </section>
         <section className="pane pane-preview">
-          <div className="pane-header">预览</div>
+          <div className="pane-header">
+            <span className="pane-header-dot" aria-hidden="true" />
+            实时预览
+          </div>
           <Preview markdown={previewMarkdown} />
         </section>
       </div>
