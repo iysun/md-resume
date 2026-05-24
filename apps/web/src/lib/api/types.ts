@@ -1,5 +1,7 @@
 export type ThemeSetting = 'system' | 'light' | 'dark'
 
+export type AccentColor = 'purple' | 'teal' | 'pink' | 'blue' | 'orange'
+
 export type AiCheckScope = 'selection' | 'document'
 
 export interface DocumentSummary {
@@ -15,6 +17,7 @@ export interface DocumentRecord extends DocumentSummary {
 export interface AppSettings {
   activeDocumentId: string | null
   theme: ThemeSetting
+  accentColor: AccentColor
 }
 
 export interface AiCheckItem {

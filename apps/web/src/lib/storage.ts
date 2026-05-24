@@ -1,7 +1,9 @@
-import type { ThemeSetting } from './api/types'
+import type { AccentColor, ThemeSetting } from './api/types'
+import { isAccentColor } from './accent-colors'
 
 const STORAGE_KEY = 'md-resume:content'
 const THEME_KEY = 'md-resume:theme'
+const ACCENT_KEY = 'md-resume:accentColor'
 const PANE_RATIO_KEY = 'md-resume:editorPaneRatio'
 const HELP_DISMISSED_KEY = 'md-resume:helpDismissed'
 
@@ -42,6 +44,24 @@ export function loadTheme(): ThemeSetting | null {
 export function saveTheme(theme: ThemeSetting): void {
   try {
     localStorage.setItem(THEME_KEY, theme)
+  } catch {
+    // ignore
+  }
+}
+
+export function loadAccentColor(): AccentColor | null {
+  try {
+    const value = localStorage.getItem(ACCENT_KEY)
+    if (isAccentColor(value)) return value
+    return null
+  } catch {
+    return null
+  }
+}
+
+export function saveAccentColor(accent: AccentColor): void {
+  try {
+    localStorage.setItem(ACCENT_KEY, accent)
   } catch {
     // ignore
   }

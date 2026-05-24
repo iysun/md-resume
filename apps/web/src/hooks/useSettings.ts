@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getSettings, patchSettings } from '../lib/api/settings'
-import type { ThemeSetting } from '../lib/api/types'
+import type { AccentColor, ThemeSetting } from '../lib/api/types'
 import {
+  applyAccentColor,
+  DEFAULT_ACCENT,
+} from '../lib/accent-colors'
+import {
+  loadAccentColor,
   loadEditorPaneRatio,
   loadTheme,
+  saveAccentColor,
   saveEditorPaneRatio,
   saveTheme,
 } from '../lib/storage'
@@ -25,6 +31,9 @@ const THEME_CYCLE: ThemeSetting[] = ['system', 'light', 'dark']
 
 export function useSettings(backendAvailable: boolean) {
   const [theme, setTheme] = useState<ThemeSetting>(() => loadTheme() ?? 'system')
+  const [accentColor, setAccentColor] = useState<AccentColor>(
+    () => loadAccentColor() ?? DEFAULT_ACCENT,
+  )
   const [editorPaneRatio, setEditorPaneRatio] = useState(loadEditorPaneRatio)
   const [settingsLoaded, setSettingsLoaded] = useState(false)
 
@@ -35,6 +44,10 @@ export function useSettings(backendAvailable: boolean) {
   }, [theme])
 
   useEffect(() => {
+    applyAccentColor(accentColor)
+  }, [accentColor])
+
+  useEffect(() => {
     if (!backendAvailable) return
 
     let cancelled = false
@@ -43,12 +56,13 @@ export function useSettings(backendAvailable: boolean) {
       .then((settings) => {
         if (cancelled) return
         setTheme(settings.theme)
+        setAccentColor(settings.accentColor ?? DEFAULT_ACCENT)
         setSettingsLoaded(true)
       })
       .catch(() => {
         if (!cancelled) {
-          const localTheme = loadTheme() ?? 'system'
-          setTheme(localTheme)
+          setTheme(loadTheme() ?? 'system')
+          setAccentColor(loadAccentColor() ?? DEFAULT_ACCENT)
           setSettingsLoaded(true)
         }
       })
@@ -84,6 +98,20 @@ export function useSettings(backendAvailable: boolean) {
     [backendAvailable],
   )
 
+  const changeAccentColor = useCallback(
+    async (nextAccent: AccentColor) => {
+      setAccentColor(nextAccent)
+      saveAccentColor(nextAccent)
+      if (!backendAvailable) return
+      try {
+        await patchSettings({ accentColor: nextAccent })
+      } catch {
+        // keep local accent even if save fails
+      }
+    },
+    [backendAvailable],
+  )
+
   const cycleTheme = useCallback(() => {
     const index = THEME_CYCLE.indexOf(theme)
     const next = THEME_CYCLE[(index + 1) % THEME_CYCLE.length]
@@ -98,8 +126,10 @@ export function useSettings(backendAvailable: boolean) {
 
   return {
     theme,
+    accentColor,
     ready,
     changeTheme,
+    changeAccentColor,
     cycleTheme,
     resolvedTheme: resolveTheme(theme),
     editorPaneRatio,

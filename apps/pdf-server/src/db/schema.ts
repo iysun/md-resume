@@ -31,6 +31,9 @@ export type Setting = typeof settings.$inferSelect
 export const SETTING_KEYS = {
   activeDocumentId: 'activeDocumentId',
   theme: 'theme',
+  accentColor: 'accentColor',
 } as const
 
 export type ThemeSetting = 'system' | 'light' | 'dark'
+
+export type AccentColor = 'purple' | 'teal' | 'pink' | 'blue' | 'orange'

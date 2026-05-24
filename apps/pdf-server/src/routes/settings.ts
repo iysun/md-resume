@@ -1,19 +1,26 @@
 import type { FastifyInstance } from 'fastify'
 import {
+  getAccentColorSetting,
   getActiveDocumentId,
   getThemeSetting,
+  setAccentColorSetting,
   setActiveDocumentId,
   setThemeSetting,
 } from '../db/settings-store.js'
-import type { ThemeSetting } from '../db/schema.js'
+import type { AccentColor, ThemeSetting } from '../db/schema.js'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { documents } from '../db/schema.js'
 
 const THEMES: ThemeSetting[] = ['system', 'light', 'dark']
+const ACCENTS: AccentColor[] = ['purple', 'teal', 'pink', 'blue', 'orange']
 
 function isTheme(value: unknown): value is ThemeSetting {
   return typeof value === 'string' && THEMES.includes(value as ThemeSetting)
+}
+
+function isAccentColor(value: unknown): value is AccentColor {
+  return typeof value === 'string' && ACCENTS.includes(value as AccentColor)
 }
 
 export async function registerSettingsRoutes(fastify: FastifyInstance) {
@@ -21,13 +28,16 @@ export async function registerSettingsRoutes(fastify: FastifyInstance) {
     return reply.send({
       activeDocumentId: getActiveDocumentId(),
       theme: getThemeSetting(),
+      accentColor: getAccentColorSetting(),
     })
   })
 
-  fastify.patch<{ Body: { activeDocumentId?: string; theme?: string } }>(
+  fastify.patch<{
+    Body: { activeDocumentId?: string; theme?: string; accentColor?: string }
+  }>(
     '/api/settings',
     async (request, reply) => {
-      const { activeDocumentId, theme } = request.body
+      const { activeDocumentId, theme, accentColor } = request.body
 
       if (activeDocumentId !== undefined) {
         const [document] = db
@@ -51,9 +61,19 @@ export async function registerSettingsRoutes(fastify: FastifyInstance) {
         setThemeSetting(theme)
       }
 
+      if (accentColor !== undefined) {
+        if (!isAccentColor(accentColor)) {
+          return reply
+            .status(400)
+            .send({ error: 'accentColor 必须为 purple、teal、pink、blue 或 orange' })
+        }
+        setAccentColorSetting(accentColor)
+      }
+
       return reply.send({
         activeDocumentId: getActiveDocumentId(),
         theme: getThemeSetting(),
+        accentColor: getAccentColorSetting(),
       })
     },
   )

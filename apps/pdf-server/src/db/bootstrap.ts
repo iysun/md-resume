@@ -82,4 +82,9 @@ export function bootstrapDatabase(): void {
   if (!theme) {
     setSetting(SETTING_KEYS.theme, JSON.stringify('system' satisfies ThemeSetting))
   }
+
+  const accentColor = getSetting(SETTING_KEYS.accentColor)
+  if (!accentColor) {
+    setSetting(SETTING_KEYS.accentColor, JSON.stringify('purple'))
+  }
 }

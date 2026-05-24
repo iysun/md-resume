@@ -177,96 +177,100 @@ export default function App() {
         </div>
       )}
 
-      <Toolbar
-        content={docs.content}
-        documents={docs.documents}
-        activeDocumentId={docs.activeDocumentId}
-        theme={settings.theme}
-        saveStatus={docs.saveStatus}
-        lastSavedAt={docs.lastSavedAt}
-        onRetrySave={docs.retrySave}
-        loadingDocument={docs.loadingDocument}
-        isOffline={docs.isOffline}
-        onImport={docs.importContent}
-        onCreateDocument={docs.createNewDocument}
-        onDeleteDocument={handleDeleteDocument}
-        onSwitchDocument={docs.switchDocument}
-        onCycleTheme={settings.cycleTheme}
-        aiChecking={ai.phase === 'loading' || ai.phase === 'streaming'}
-        aiAvailable={ai.backendAvailable}
-        onAiCheck={() => ai.openCheckAndRun('document')}
-        onAiHistory={() => ai.openHistory()}
-        onConfirmReset={() => setConfirmState({ type: 'reset' })}
-      />
+      <div className="app-frame">
+        <Toolbar
+          content={docs.content}
+          documents={docs.documents}
+          activeDocumentId={docs.activeDocumentId}
+          theme={settings.theme}
+          accentColor={settings.accentColor}
+          saveStatus={docs.saveStatus}
+          lastSavedAt={docs.lastSavedAt}
+          onRetrySave={docs.retrySave}
+          loadingDocument={docs.loadingDocument}
+          isOffline={docs.isOffline}
+          onImport={docs.importContent}
+          onCreateDocument={docs.createNewDocument}
+          onDeleteDocument={handleDeleteDocument}
+          onSwitchDocument={docs.switchDocument}
+          onChangeTheme={settings.changeTheme}
+          onChangeAccentColor={settings.changeAccentColor}
+          aiChecking={ai.phase === 'loading' || ai.phase === 'streaming'}
+          aiAvailable={ai.backendAvailable}
+          onAiCheck={() => ai.openCheckAndRun('document')}
+          onAiHistory={() => ai.openHistory()}
+          onConfirmReset={() => setConfirmState({ type: 'reset' })}
+        />
 
-      {isCompactLayout && (
-        <div className="mobile-pane-tabs" role="tablist" aria-label="编辑与预览">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mobileTab === 'editor'}
-            className={mobileTab === 'editor' ? 'active' : undefined}
-            onClick={() => setMobileTab('editor')}
-          >
-            编辑
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mobileTab === 'preview'}
-            className={mobileTab === 'preview' ? 'active' : undefined}
-            onClick={() => setMobileTab('preview')}
-          >
-            预览
-          </button>
-        </div>
-      )}
-
-      <div className={`app-main${isCompactLayout ? ' app-main-compact' : ''}`}>
-        <section
-          className={`pane pane-editor${isCompactLayout && mobileTab !== 'editor' ? ' pane-hidden' : ''}`}
-          style={isCompactLayout ? undefined : { flex: editorFlex }}
-        >
-          <div className="pane-header">
-            <span className="pane-header-dot" aria-hidden="true" />
-            <span className="pane-header-title">Markdown 编辑</span>
-            <MarkdownHelp compact />
+        {isCompactLayout && (
+          <div className="mobile-pane-tabs" role="tablist" aria-label="编辑与预览">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'editor'}
+              className={mobileTab === 'editor' ? 'active' : undefined}
+              onClick={() => setMobileTab('editor')}
+            >
+              编辑
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'preview'}
+              className={mobileTab === 'preview' ? 'active' : undefined}
+              onClick={() => setMobileTab('preview')}
+            >
+              预览
+            </button>
           </div>
-          {!docs.content.trim() && <MarkdownHelp />}
-          <Editor
-            ref={editorRef}
-            value={docs.content}
-            onChange={docs.setContent}
-            theme={settings.theme}
-            onSelectionAnchorChange={setSelectionAnchor}
-            onRequestAiCheck={handleOpenAiCheckSelection}
-            onRequestAiTalk={handleOpenAiTalk}
-            aiToolbarHidden={ai.modalOpen || aiChat.open}
-            aiToolbarDisabled={!ai.backendAvailable}
-          />
-        </section>
-
-        {!isCompactLayout && (
-          <PaneResizer onResize={settings.changeEditorPaneRatio} />
         )}
 
-        <section
-          className={`pane pane-preview${isCompactLayout && mobileTab !== 'preview' ? ' pane-hidden' : ''}${previewSyncing ? ' pane-preview-syncing' : ''}`}
-          style={isCompactLayout ? undefined : { flex: previewFlex }}
-        >
-          <div className="pane-header">
-            <span className="pane-header-dot" aria-hidden="true" />
-            <span className="pane-header-title">实时预览</span>
-            <span
-              className={`sync-indicator${previewSyncing ? ' sync-indicator-pending' : ' sync-indicator-synced'}`}
-              role="status"
-              aria-live="polite"
-            >
-              {previewSyncing ? '同步中…' : '已同步'}
-            </span>
-          </div>
-          <Preview markdown={previewMarkdown} syncing={previewSyncing} />
-        </section>
+        <div className={`app-main${isCompactLayout ? ' app-main-compact' : ''}`}>
+          <section
+            className={`pane pane-editor${isCompactLayout && mobileTab !== 'editor' ? ' pane-hidden' : ''}`}
+            style={isCompactLayout ? undefined : { flex: editorFlex }}
+          >
+            <div className="pane-header">
+              <span className="pane-header-dot" aria-hidden="true" />
+              <span className="pane-header-title">Markdown 编辑</span>
+              <MarkdownHelp compact />
+            </div>
+            {!docs.content.trim() && <MarkdownHelp />}
+            <Editor
+              ref={editorRef}
+              value={docs.content}
+              onChange={docs.setContent}
+              theme={settings.theme}
+              onSelectionAnchorChange={setSelectionAnchor}
+              onRequestAiCheck={handleOpenAiCheckSelection}
+              onRequestAiTalk={handleOpenAiTalk}
+              aiToolbarHidden={ai.modalOpen || aiChat.open}
+              aiToolbarDisabled={!ai.backendAvailable}
+            />
+          </section>
+
+          {!isCompactLayout && (
+            <PaneResizer onResize={settings.changeEditorPaneRatio} />
+          )}
+
+          <section
+            className={`pane pane-preview${isCompactLayout && mobileTab !== 'preview' ? ' pane-hidden' : ''}${previewSyncing ? ' pane-preview-syncing' : ''}`}
+            style={isCompactLayout ? undefined : { flex: previewFlex }}
+          >
+            <div className="pane-header">
+              <span className="pane-header-dot" aria-hidden="true" />
+              <span className="pane-header-title">实时预览</span>
+              <span
+                className={`sync-indicator${previewSyncing ? ' sync-indicator-pending' : ' sync-indicator-synced'}`}
+                role="status"
+                aria-live="polite"
+              >
+                {previewSyncing ? '同步中…' : '已同步'}
+              </span>
+            </div>
+            <Preview markdown={previewMarkdown} syncing={previewSyncing} />
+          </section>
+        </div>
       </div>
 
       <AiCheckModal

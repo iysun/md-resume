@@ -204,7 +204,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (!editorView) return
 
     function updateSelectionUi() {
-      syncSelectionUi(editorView)
+      const view = viewRef.current
+      if (!view) return
+      syncSelectionUi(view)
     }
 
     window.addEventListener('scroll', updateSelectionUi, true)

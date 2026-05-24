@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import type { DocumentSummary, ThemeSetting } from '../lib/api/types'
+import type { AccentColor, DocumentSummary, ThemeSetting } from '../lib/api/types'
 import type { SaveStatus } from '../hooks/useDocuments'
+import { ACCENT_SWATCHES, ACCENT_COLORS } from '../lib/accent-colors'
 import { markdownToHtml } from '../lib/markdown'
 import { exportPdf, downloadMarkdown, printResume } from '../lib/pdf'
 
@@ -9,6 +10,7 @@ interface ToolbarProps {
   documents: DocumentSummary[]
   activeDocumentId: string | null
   theme: ThemeSetting
+  accentColor: AccentColor
   saveStatus: SaveStatus
   lastSavedAt: Date | null
   onRetrySave: () => void
@@ -18,7 +20,8 @@ interface ToolbarProps {
   onCreateDocument: () => void
   onDeleteDocument: () => void
   onSwitchDocument: (id: string) => void
-  onCycleTheme: () => void
+  onChangeTheme: (theme: ThemeSetting) => void
+  onChangeAccentColor: (accent: AccentColor) => void
   aiChecking: boolean
   aiAvailable: boolean
   onAiCheck: () => void
@@ -26,11 +29,11 @@ interface ToolbarProps {
   onConfirmReset: () => void
 }
 
-const THEME_LABELS: Record<ThemeSetting, string> = {
-  system: '系统主题',
-  light: '浅色主题',
-  dark: '深色主题',
-}
+const THEME_OPTIONS: { value: ThemeSetting; label: string }[] = [
+  { value: 'system', label: '系统' },
+  { value: 'light', label: '浅色' },
+  { value: 'dark', label: '深色' },
+]
 
 function formatSavedTime(date: Date): string {
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
@@ -71,6 +74,7 @@ export function Toolbar({
   documents,
   activeDocumentId,
   theme,
+  accentColor,
   saveStatus,
   lastSavedAt,
   onRetrySave,
@@ -80,7 +84,8 @@ export function Toolbar({
   onCreateDocument,
   onDeleteDocument,
   onSwitchDocument,
-  onCycleTheme,
+  onChangeTheme,
+  onChangeAccentColor,
   aiChecking,
   aiAvailable,
   onAiCheck,
@@ -230,15 +235,40 @@ export function Toolbar({
 
         <div className="toolbar-divider" aria-hidden="true" />
 
-        <button
-          type="button"
-          className="toolbar-theme-toggle"
-          onClick={onCycleTheme}
-          aria-label={THEME_LABELS[theme]}
-          title={THEME_LABELS[theme]}
+        <div className="toolbar-theme" role="group" aria-label="主题">
+          {THEME_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={theme === option.value ? 'active' : undefined}
+              aria-label={`${option.label}主题`}
+              aria-pressed={theme === option.value}
+              title={`${option.label}主题`}
+              onClick={() => onChangeTheme(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <div
+          className="toolbar-accent"
+          role="group"
+          aria-label="主题色"
         >
-          {theme === 'dark' ? '🌙' : theme === 'light' ? '☀️' : '💻'}
-        </button>
+          {ACCENT_COLORS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              className={`toolbar-accent-swatch${accentColor === color ? ' active' : ''}`}
+              style={{ '--swatch-color': ACCENT_SWATCHES[color].color } as React.CSSProperties}
+              aria-label={`${ACCENT_SWATCHES[color].label}主题色`}
+              aria-pressed={accentColor === color}
+              title={ACCENT_SWATCHES[color].label}
+              onClick={() => onChangeAccentColor(color)}
+            />
+          ))}
+        </div>
 
         <div className="toolbar-menu" ref={moreMenuRef}>
           <button

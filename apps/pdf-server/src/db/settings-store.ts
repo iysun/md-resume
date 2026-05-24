@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { SETTING_KEYS, settings, type ThemeSetting } from '../db/schema.js'
+import { SETTING_KEYS, settings, type ThemeSetting, type AccentColor } from '../db/schema.js'
 
 function parseJsonSetting<T>(value: string | null, fallback: T): T {
   if (!value) return fallback
@@ -40,6 +40,14 @@ export function getThemeSetting(): ThemeSetting {
 
 export function setThemeSetting(theme: ThemeSetting): void {
   writeSetting(SETTING_KEYS.theme, JSON.stringify(theme))
+}
+
+export function getAccentColorSetting(): AccentColor {
+  return parseJsonSetting(readSetting(SETTING_KEYS.accentColor), 'purple')
+}
+
+export function setAccentColorSetting(accentColor: AccentColor): void {
+  writeSetting(SETTING_KEYS.accentColor, JSON.stringify(accentColor))
 }
 
 export function deriveTitleFromContent(content: string, fallback = '未命名简历'): string {
