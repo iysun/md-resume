@@ -173,7 +173,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (!view || !onSelectionAnchorChange) return
 
     function updateAnchor() {
-      if (viewRef.current) {
+      if (viewRef.current && onSelectionAnchorChange) {
         onSelectionAnchorChange(computeSelectionAnchor(viewRef.current))
       }
     }
@@ -246,7 +246,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         >
           {onRequestAiCheck && (
             <button type="button" role="menuitem" onClick={handleContextMenuCheck}>
-              AI 检查选区
+              检查选区
             </button>
           )}
           {onRequestAiTalk && (

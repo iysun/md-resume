@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getSettings, patchSettings } from '../lib/api/settings'
 import type { ThemeSetting } from '../lib/api/types'
+import {
+  loadEditorPaneRatio,
+  loadTheme,
+  saveEditorPaneRatio,
+  saveTheme,
+} from '../lib/storage'
 
 function resolveTheme(theme: ThemeSetting): 'light' | 'dark' {
   if (theme === 'system') {
@@ -15,14 +21,18 @@ function applyTheme(theme: ThemeSetting) {
   document.documentElement.dataset.theme = resolveTheme(theme)
 }
 
+const THEME_CYCLE: ThemeSetting[] = ['system', 'light', 'dark']
+
 export function useSettings(backendAvailable: boolean) {
-  const [theme, setTheme] = useState<ThemeSetting>('system')
-  const [ready, setReady] = useState(!backendAvailable)
+  const [theme, setTheme] = useState<ThemeSetting>(() => loadTheme() ?? 'system')
+  const [editorPaneRatio, setEditorPaneRatio] = useState(loadEditorPaneRatio)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+
+  const ready = !backendAvailable || settingsLoaded
 
   useEffect(() => {
-    if (backendAvailable) return
-    applyTheme('system')
-  }, [backendAvailable])
+    applyTheme(theme)
+  }, [theme])
 
   useEffect(() => {
     if (!backendAvailable) return
@@ -33,13 +43,13 @@ export function useSettings(backendAvailable: boolean) {
       .then((settings) => {
         if (cancelled) return
         setTheme(settings.theme)
-        applyTheme(settings.theme)
-        setReady(true)
+        setSettingsLoaded(true)
       })
       .catch(() => {
         if (!cancelled) {
-          applyTheme('system')
-          setReady(true)
+          const localTheme = loadTheme() ?? 'system'
+          setTheme(localTheme)
+          setSettingsLoaded(true)
         }
       })
 
@@ -63,7 +73,7 @@ export function useSettings(backendAvailable: boolean) {
   const changeTheme = useCallback(
     async (nextTheme: ThemeSetting) => {
       setTheme(nextTheme)
-      applyTheme(nextTheme)
+      saveTheme(nextTheme)
       if (!backendAvailable) return
       try {
         await patchSettings({ theme: nextTheme })
@@ -74,10 +84,25 @@ export function useSettings(backendAvailable: boolean) {
     [backendAvailable],
   )
 
+  const cycleTheme = useCallback(() => {
+    const index = THEME_CYCLE.indexOf(theme)
+    const next = THEME_CYCLE[(index + 1) % THEME_CYCLE.length]
+    void changeTheme(next)
+  }, [changeTheme, theme])
+
+  const changeEditorPaneRatio = useCallback((ratio: number) => {
+    const clamped = Math.min(0.7, Math.max(0.3, ratio))
+    setEditorPaneRatio(clamped)
+    saveEditorPaneRatio(clamped)
+  }, [])
+
   return {
     theme,
     ready,
     changeTheme,
+    cycleTheme,
     resolvedTheme: resolveTheme(theme),
+    editorPaneRatio,
+    changeEditorPaneRatio,
   }
 }

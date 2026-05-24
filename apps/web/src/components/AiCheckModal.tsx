@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import type { AiCheckItem } from '../lib/ai-check'
 import type { AiCheckModalPhase, AiCheckModalTab, AiCheckSession } from '../hooks/useAiCheck'
 import type { AiCheckDetail, AiCheckSummary } from '../lib/api/types'
@@ -30,11 +30,18 @@ interface AiCheckModalProps {
 }
 
 const CATEGORY_LABELS: Record<AiCheckItem['category'], string> = {
-  error: '错误',
-  warning: '格式',
-  suggestion: '建议',
-  good: '亮点',
+  error: '✕ 错误',
+  warning: '⚠ 格式',
+  suggestion: '💡 建议',
+  good: '✓ 亮点',
 }
+
+const STREAMING_STEPS = [
+  '正在阅读简历内容…',
+  '正在分析工作经历…',
+  '正在检查格式与排版…',
+  '正在整理改进建议…',
+]
 
 const CATEGORY_ORDER: AiCheckItem['category'][] = ['error', 'warning', 'suggestion', 'good']
 
@@ -74,12 +81,15 @@ export function AiCheckModal({
   onBackHistory,
   onDeleteHistory,
 }: AiCheckModalProps) {
-  const streamRef = useRef<HTMLPreElement>(null)
+  const [streamingStep, setStreamingStep] = useState(0)
 
   useEffect(() => {
-    if (phase !== 'streaming' || !streamRef.current) return
-    streamRef.current.scrollTop = streamRef.current.scrollHeight
-  }, [phase, streamText])
+    if (phase !== 'streaming' && phase !== 'loading') return
+    const timer = window.setInterval(() => {
+      setStreamingStep((step) => (step + 1) % STREAMING_STEPS.length)
+    }, 2200)
+    return () => window.clearInterval(timer)
+  }, [phase])
 
   useEffect(() => {
     if (!open) return
@@ -115,7 +125,9 @@ export function AiCheckModal({
           <button
             type="button"
             role="tab"
+            id="ai-tab-check"
             aria-selected={tab === 'check'}
+            aria-controls="ai-tabpanel-check"
             className={tab === 'check' ? 'active' : undefined}
             onClick={() => onTabChange('check')}
           >
@@ -124,7 +136,9 @@ export function AiCheckModal({
           <button
             type="button"
             role="tab"
+            id="ai-tab-history"
             aria-selected={tab === 'history'}
+            aria-controls="ai-tabpanel-history"
             className={tab === 'history' ? 'active' : undefined}
             onClick={() => onTabChange('history')}
           >
@@ -132,7 +146,12 @@ export function AiCheckModal({
           </button>
         </div>
 
-        <div className="ai-modal-body">
+        <div
+          className="ai-modal-body"
+          id={tab === 'history' ? 'ai-tabpanel-history' : 'ai-tabpanel-check'}
+          role="tabpanel"
+          aria-labelledby={tab === 'history' ? 'ai-tab-history' : 'ai-tab-check'}
+        >
           {tab === 'history' ? (
             <AiCheckHistory
               history={history}
@@ -171,20 +190,22 @@ export function AiCheckModal({
                 </div>
               )}
 
-              {phase === 'streaming' && (
+              {(phase === 'streaming' || phase === 'loading') && (
                 <div className="ai-modal-streaming">
-                  <p className="ai-modal-streaming-label">AI 正在分析{scopeLabel}内容…</p>
-                  <pre ref={streamRef} className="ai-modal-stream">
-                    {streamText}
-                    <span className="ai-modal-stream-cursor" aria-hidden="true" />
-                  </pre>
-                </div>
-              )}
-
-              {phase === 'loading' && (
-                <div className="ai-modal-loading">
                   <div className="ai-modal-spinner" aria-hidden="true" />
-                  <p>AI 正在分析{scopeLabel}内容…</p>
+                  <p className="ai-modal-streaming-label">
+                    {STREAMING_STEPS[streamingStep]}
+                  </p>
+                  <div className="ai-modal-skeleton" aria-hidden="true">
+                    <div className="ai-modal-skeleton-line ai-modal-skeleton-line-wide" />
+                    <div className="ai-modal-skeleton-line" />
+                    <div className="ai-modal-skeleton-line ai-modal-skeleton-line-medium" />
+                    <div className="ai-modal-skeleton-line" />
+                    <div className="ai-modal-skeleton-line ai-modal-skeleton-line-short" />
+                  </div>
+                  {import.meta.env.DEV && streamText && (
+                    <pre className="ai-modal-stream ai-modal-stream-dev">{streamText}</pre>
+                  )}
                 </div>
               )}
 

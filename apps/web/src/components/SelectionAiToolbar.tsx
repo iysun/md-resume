@@ -24,7 +24,7 @@ export function SelectionAiToolbar({ anchor, disabled, onCheck, onTalk }: Select
       onMouseDown={(event) => event.preventDefault()}
     >
       <button type="button" onClick={onCheck}>
-        AI 检查 ({anchor.charCount} 字)
+        检查 ({anchor.charCount} 字)
       </button>
       <span className="selection-ai-toolbar-divider" aria-hidden="true" />
       <button type="button" onClick={onTalk}>

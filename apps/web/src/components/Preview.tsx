@@ -4,14 +4,15 @@ import '../styles/resume.css'
 
 interface PreviewProps {
   markdown: string
+  syncing?: boolean
 }
 
-export function Preview({ markdown }: PreviewProps) {
+export function Preview({ markdown, syncing = false }: PreviewProps) {
   const html = useMemo(() => markdownToHtml(markdown), [markdown])
 
   return (
     <div className="preview-scroll">
-      <div className="preview-paper">
+      <div className={`preview-paper${syncing ? ' preview-paper-syncing' : ''}`}>
         <article
           className="resume"
           dangerouslySetInnerHTML={{ __html: html }}

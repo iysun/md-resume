@@ -8,22 +8,44 @@ import {
 } from '../lib/api/documents'
 import { getSettings, patchSettings } from '../lib/api/settings'
 import type { DocumentSummary } from '../lib/api/types'
-import { clearContent, loadContent, loadDefaultTemplate } from '../lib/storage'
+import {
+  clearContent,
+  deriveTitleFromContent,
+  loadContent,
+  loadDefaultTemplate,
+  saveContent,
+} from '../lib/storage'
+
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 interface UseDocumentsOptions {
   backendAvailable: boolean
 }
+
+const LOCAL_DOC_ID = 'local'
 
 export function useDocuments({ backendAvailable }: UseDocumentsOptions) {
   const [ready, setReady] = useState(false)
   const [documents, setDocuments] = useState<DocumentSummary[]>([])
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null)
   const [content, setContent] = useState('')
+  const [persistedContent, setPersistedContent] = useState('')
   const [saveError, setSaveError] = useState(false)
+  const [showSavedIndicator, setShowSavedIndicator] = useState(false)
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [loadingDocument, setLoadingDocument] = useState(false)
   const saveTimerRef = useRef<number | null>(null)
+  const savedFadeTimerRef = useRef<number | null>(null)
   const latestContentRef = useRef(content)
   const activeDocumentIdRef = useRef(activeDocumentId)
+
+  const saveStatus: SaveStatus = saveError
+    ? 'error'
+    : content !== persistedContent
+      ? 'saving'
+      : showSavedIndicator
+        ? 'saved'
+        : 'idle'
 
   useEffect(() => {
     latestContentRef.current = content
@@ -33,11 +55,30 @@ export function useDocuments({ backendAvailable }: UseDocumentsOptions) {
     activeDocumentIdRef.current = activeDocumentId
   }, [activeDocumentId])
 
+  const scheduleSavedFade = useCallback(() => {
+    if (savedFadeTimerRef.current !== null) {
+      window.clearTimeout(savedFadeTimerRef.current)
+    }
+    setShowSavedIndicator(true)
+    savedFadeTimerRef.current = window.setTimeout(() => {
+      setShowSavedIndicator(false)
+    }, 3000)
+  }, [])
+
+  const markPersisted = useCallback((nextContent: string) => {
+    setPersistedContent(nextContent)
+    setLastSavedAt(new Date())
+    scheduleSavedFade()
+  }, [scheduleSavedFade])
+
   const loadActiveDocument = useCallback(async (documentId: string) => {
     const document = await getDocument(documentId)
     setContent(document.content)
+    setPersistedContent(document.content)
     setActiveDocumentId(document.id)
     activeDocumentIdRef.current = document.id
+    setShowSavedIndicator(false)
+    setSaveError(false)
   }, [])
 
   const refreshDocuments = useCallback(async () => {
@@ -45,6 +86,40 @@ export function useDocuments({ backendAvailable }: UseDocumentsOptions) {
     setDocuments(rows)
     return rows
   }, [])
+
+  useEffect(() => {
+    if (backendAvailable) return
+
+    let cancelled = false
+
+    async function initOffline() {
+      let initial = loadContent()
+      if (!initial?.trim()) {
+        try {
+          initial = await loadDefaultTemplate()
+        } catch {
+          initial = '# 简历\n\n在此编写你的简历…'
+        }
+      }
+      if (cancelled) return
+
+      const title = deriveTitleFromContent(initial)
+      setDocuments([{ id: LOCAL_DOC_ID, title, updatedAt: Date.now() }])
+      setActiveDocumentId(LOCAL_DOC_ID)
+      activeDocumentIdRef.current = LOCAL_DOC_ID
+      setContent(initial)
+      setPersistedContent(initial)
+      setSaveError(false)
+      setShowSavedIndicator(false)
+      setReady(true)
+    }
+
+    initOffline()
+
+    return () => {
+      cancelled = true
+    }
+  }, [backendAvailable])
 
   useEffect(() => {
     if (!backendAvailable) return
@@ -104,7 +179,9 @@ export function useDocuments({ backendAvailable }: UseDocumentsOptions) {
 
         setActiveDocumentId(document.id)
         setContent(document.content)
+        setPersistedContent(document.content)
         setSaveError(false)
+        setShowSavedIndicator(false)
         setReady(true)
       } catch {
         if (!cancelled) {
@@ -122,16 +199,26 @@ export function useDocuments({ backendAvailable }: UseDocumentsOptions) {
   }, [backendAvailable])
 
   useEffect(() => {
-    if (!ready || !activeDocumentId || !backendAvailable) return
+    if (!ready || !activeDocumentId) return
 
     if (saveTimerRef.current !== null) {
       window.clearTimeout(saveTimerRef.current)
     }
 
     saveTimerRef.current = window.setTimeout(() => {
+      if (!backendAvailable) {
+        saveContent(latestContentRef.current)
+        const title = deriveTitleFromContent(latestContentRef.current)
+        setDocuments([{ id: LOCAL_DOC_ID, title, updatedAt: Date.now() }])
+        setSaveError(false)
+        markPersisted(latestContentRef.current)
+        return
+      }
+
       updateDocument(activeDocumentId, { content: latestContentRef.current })
         .then((document) => {
           setSaveError(false)
+          markPersisted(latestContentRef.current)
           setDocuments((prev) =>
             prev.map((row) =>
               row.id === document.id
@@ -154,14 +241,34 @@ export function useDocuments({ backendAvailable }: UseDocumentsOptions) {
         window.clearTimeout(saveTimerRef.current)
       }
     }
-  }, [content, ready, activeDocumentId, backendAvailable])
+  }, [content, ready, activeDocumentId, backendAvailable, markPersisted])
+
+  const retrySave = useCallback(() => {
+    if (!activeDocumentIdRef.current) return
+    if (!backendAvailable) {
+      saveContent(latestContentRef.current)
+      setSaveError(false)
+      markPersisted(latestContentRef.current)
+      return
+    }
+    updateDocument(activeDocumentIdRef.current, { content: latestContentRef.current })
+      .then(() => {
+        setSaveError(false)
+        markPersisted(latestContentRef.current)
+      })
+      .catch(() => {
+        setSaveError(true)
+      })
+  }, [backendAvailable, markPersisted])
 
   const switchDocument = useCallback(
     async (documentId: string) => {
       if (documentId === activeDocumentIdRef.current) return
+      if (!backendAvailable) return
+
       setLoadingDocument(true)
       try {
-        if (activeDocumentIdRef.current) {
+        if (activeDocumentIdRef.current && latestContentRef.current !== persistedContent) {
           await updateDocument(activeDocumentIdRef.current, {
             content: latestContentRef.current,
           })
@@ -176,13 +283,14 @@ export function useDocuments({ backendAvailable }: UseDocumentsOptions) {
         setLoadingDocument(false)
       }
     },
-    [loadActiveDocument, refreshDocuments],
+    [backendAvailable, loadActiveDocument, persistedContent, refreshDocuments],
   )
 
   const createNewDocument = useCallback(async () => {
+    if (!backendAvailable) return
     setLoadingDocument(true)
     try {
-      if (activeDocumentIdRef.current) {
+      if (activeDocumentIdRef.current && latestContentRef.current !== persistedContent) {
         await updateDocument(activeDocumentIdRef.current, {
           content: latestContentRef.current,
         })
@@ -192,17 +300,19 @@ export function useDocuments({ backendAvailable }: UseDocumentsOptions) {
       setDocuments(await refreshDocuments())
       setActiveDocumentId(document.id)
       setContent(document.content)
+      setPersistedContent(document.content)
+      setShowSavedIndicator(false)
       setSaveError(false)
     } catch {
       setSaveError(true)
     } finally {
       setLoadingDocument(false)
     }
-  }, [refreshDocuments])
+  }, [backendAvailable, persistedContent, refreshDocuments])
 
   const removeDocument = useCallback(
     async (documentId: string) => {
-      if (documents.length <= 1) return
+      if (!backendAvailable || documents.length <= 1) return
       setLoadingDocument(true)
       try {
         await deleteDocument(documentId)
@@ -222,11 +332,10 @@ export function useDocuments({ backendAvailable }: UseDocumentsOptions) {
         setLoadingDocument(false)
       }
     },
-    [documents.length, loadActiveDocument, refreshDocuments],
+    [backendAvailable, documents.length, loadActiveDocument, refreshDocuments],
   )
 
   const resetToTemplate = useCallback(async () => {
-    if (!activeDocumentIdRef.current) return
     try {
       const template = await loadDefaultTemplate()
       setContent(template)
@@ -247,11 +356,15 @@ export function useDocuments({ backendAvailable }: UseDocumentsOptions) {
     content,
     setContent,
     saveError,
+    saveStatus,
+    lastSavedAt,
+    retrySave,
     loadingDocument,
     switchDocument,
     createNewDocument,
     removeDocument,
     resetToTemplate,
     importContent,
+    isOffline: !backendAvailable,
   }
 }
