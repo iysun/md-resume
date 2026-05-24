@@ -258,6 +258,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       <CodeMirror
         value={value}
         height="100%"
+        className="editor-codemirror"
         extensions={extensions}
         theme={resolvedDark ? oneDark : 'light'}
         onChange={onChange}

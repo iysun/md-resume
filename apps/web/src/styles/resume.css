@@ -214,6 +214,21 @@
   border: 1px solid var(--resume-line);
   border-radius: 2px;
   overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(115, 115, 115, 0.45) transparent;
+}
+
+.resume pre::-webkit-scrollbar {
+  height: 6px;
+}
+
+.resume pre::-webkit-scrollbar-thumb {
+  background-color: rgba(115, 115, 115, 0.4);
+  border-radius: 999px;
+}
+
+.resume pre::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(115, 115, 115, 0.6);
 }
 
 .resume pre code {
