@@ -5,7 +5,6 @@ import { Preview } from './components/Preview'
 import { Toolbar } from './components/Toolbar'
 import { AiCheckModal } from './components/AiCheckModal'
 import { AiChatPanel } from './components/AiChatPanel'
-import { SelectionAiToolbar } from './components/SelectionAiToolbar'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { PaneResizer } from './components/PaneResizer'
 import { MarkdownHelp } from './components/MarkdownHelp'
@@ -242,12 +241,8 @@ export default function App() {
             onSelectionAnchorChange={setSelectionAnchor}
             onRequestAiCheck={handleOpenAiCheckSelection}
             onRequestAiTalk={handleOpenAiTalk}
-          />
-          <SelectionAiToolbar
-            anchor={ai.modalOpen || aiChat.open ? null : selectionAnchor}
-            disabled={!ai.backendAvailable}
-            onCheck={handleOpenAiCheckSelection}
-            onTalk={handleOpenAiTalk}
+            aiToolbarHidden={ai.modalOpen || aiChat.open}
+            aiToolbarDisabled={!ai.backendAvailable}
           />
         </section>
 

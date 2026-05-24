@@ -710,9 +710,10 @@ textarea:focus:not(:focus-visible) {
 }
 
 .selection-ai-toolbar {
-  position: fixed;
-  z-index: 1000;
-  transform: translate(-50%, -100%);
+  position: absolute;
+  right: 12px;
+  z-index: 10;
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
   gap: 2px;

@@ -37,6 +37,7 @@ export interface EditorHandle {
   ) => boolean
 }
 
+import { SelectionAiToolbar } from './SelectionAiToolbar'
 import type { ThemeSetting } from '../lib/api/types'
 
 interface EditorProps {
@@ -47,6 +48,8 @@ interface EditorProps {
   onSelectionAnchorChange?: (anchor: SelectionAnchor | null) => void
   onRequestAiCheck?: () => void
   onRequestAiTalk?: () => void
+  aiToolbarHidden?: boolean
+  aiToolbarDisabled?: boolean
 }
 
 interface ContextMenuState {
@@ -58,14 +61,30 @@ function computeSelectionAnchor(view: EditorView): SelectionAnchor | null {
   const { from, to } = view.state.selection.main
   if (from === to) return null
 
-  const coords = view.coordsAtPos(to)
-  if (!coords) return null
+  const startCoords = view.coordsAtPos(from, -1)
+  if (!startCoords) return null
+
+  const editorRect = view.dom.getBoundingClientRect()
 
   return {
-    x: coords.left,
-    y: coords.top,
+    x: editorRect.right,
+    y: startCoords.top,
     charCount: to - from,
   }
+}
+
+function computeToolbarTop(view: EditorView, wrapper: HTMLElement): number | null {
+  const { from, to } = view.state.selection.main
+  if (from === to) return null
+
+  const startCoords = view.coordsAtPos(from, -1)
+  if (!startCoords) return null
+
+  const wrapperRect = wrapper.getBoundingClientRect()
+  const lineHeight = startCoords.bottom - startCoords.top
+  const centerY = startCoords.top - wrapperRect.top + lineHeight / 2
+
+  return Math.max(24, Math.min(centerY, wrapperRect.height - 24))
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
@@ -77,11 +96,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     onSelectionAnchorChange,
     onRequestAiCheck,
     onRequestAiTalk,
+    aiToolbarHidden = false,
+    aiToolbarDisabled = false,
   },
   ref,
 ) {
   const viewRef = useRef<EditorView | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const [editorView, setEditorView] = useState<EditorView | null>(null)
+  const [toolbarTop, setToolbarTop] = useState<number | null>(null)
+  const [toolbarCharCount, setToolbarCharCount] = useState(0)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [resolvedDark, setResolvedDark] = useState(() => {
     if (theme === 'dark') return true
@@ -108,12 +132,20 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return () => media.removeEventListener('change', handleChange)
   }, [theme])
 
-  const notifySelection = useCallback(
+  const syncSelectionUi = useCallback(
     (view: EditorView) => {
       const { from, to } = view.state.selection.main
       const hasSelection = from !== to
       onSelectionChange?.(hasSelection, hasSelection ? to - from : 0)
       onSelectionAnchorChange?.(computeSelectionAnchor(view))
+
+      const wrapper = wrapperRef.current
+      if (!wrapper || !hasSelection) {
+        setToolbarTop(null)
+        return
+      }
+      setToolbarTop(computeToolbarTop(view, wrapper))
+      setToolbarCharCount(to - from)
     },
     [onSelectionChange, onSelectionAnchorChange],
   )
@@ -123,10 +155,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       EditorView.updateListener.of((update) => {
         if (!viewRef.current) return
         if (update.selectionSet || update.viewportChanged) {
-          notifySelection(update.view)
+          syncSelectionUi(update.view)
         }
       }),
-    [notifySelection],
+    [syncSelectionUi],
   )
 
   const extensions = useMemo(
@@ -169,22 +201,21 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }), [onChange])
 
   useEffect(() => {
-    const view = viewRef.current
-    if (!view || !onSelectionAnchorChange) return
+    if (!editorView) return
 
-    function updateAnchor() {
-      if (viewRef.current && onSelectionAnchorChange) {
-        onSelectionAnchorChange(computeSelectionAnchor(viewRef.current))
-      }
+    function updateSelectionUi() {
+      syncSelectionUi(editorView)
     }
 
-    window.addEventListener('scroll', updateAnchor, true)
-    window.addEventListener('resize', updateAnchor)
+    window.addEventListener('scroll', updateSelectionUi, true)
+    window.addEventListener('resize', updateSelectionUi)
+    editorView.scrollDOM.addEventListener('scroll', updateSelectionUi)
     return () => {
-      window.removeEventListener('scroll', updateAnchor, true)
-      window.removeEventListener('resize', updateAnchor)
+      window.removeEventListener('scroll', updateSelectionUi, true)
+      window.removeEventListener('resize', updateSelectionUi)
+      editorView.scrollDOM.removeEventListener('scroll', updateSelectionUi)
     }
-  }, [onSelectionAnchorChange])
+  }, [editorView, syncSelectionUi])
 
   useEffect(() => {
     if (!contextMenu) return
@@ -230,7 +261,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         onChange={onChange}
         onCreateEditor={(view) => {
           viewRef.current = view
-          notifySelection(view)
+          setEditorView(view)
+          syncSelectionUi(view)
         }}
         basicSetup={{
           lineNumbers: true,
@@ -238,6 +270,18 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           highlightActiveLine: true,
         }}
       />
+      {toolbarTop !== null
+        && !aiToolbarHidden
+        && !aiToolbarDisabled
+        && onRequestAiCheck
+        && onRequestAiTalk && (
+        <SelectionAiToolbar
+          top={toolbarTop}
+          charCount={toolbarCharCount}
+          onCheck={onRequestAiCheck}
+          onTalk={onRequestAiTalk}
+        />
+      )}
       {contextMenu && (
         <div
           className="editor-context-menu"

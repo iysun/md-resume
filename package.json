@@ -12,6 +12,8 @@
     "dev:pdf": "pnpm --filter pdf-server dev",
     "build": "pnpm --filter web build",
     "lint": "pnpm -r lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "preview": "pnpm --filter web preview"
   },
   "devDependencies": {
@@ -20,6 +22,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "prettier": "^3.8.0",
     "typescript-eslint": "^8.59.2"
   }
 }
