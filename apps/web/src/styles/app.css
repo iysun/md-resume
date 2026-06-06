@@ -513,7 +513,6 @@ textarea:focus:not(:focus-visible) {
   overflow: hidden;
 }
 
-.editor-wrapper > div,
 .editor-wrapper .editor-codemirror {
   flex: 1;
   min-height: 0;
