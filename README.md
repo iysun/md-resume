@@ -22,11 +22,11 @@
 ```bash
 cd md-resume
 pnpm install
-cp .env.example .env   # 填入 DEEPSEEK_API_KEY
+cp .env.example .env   # 填入 API_KEY
 pnpm dev
 ```
 
-在 `.env` 中设置 `DEEPSEEK_API_KEY`（也支持 `OPENAI_API_KEY`），然后启动。浏览器打开 [http://localhost:5173](http://localhost:5173)。
+在 `.env` 中设置 `API_KEY`（也支持 `OPENAI_API_KEY`），然后启动。浏览器打开 [http://localhost:5173](http://localhost:5173)。
 
 `pnpm dev` 会同时启动前端与 API 服务（默认端口 3001）。**AI 检查依赖后端，不可仅启动前端。**
 
@@ -48,9 +48,9 @@ pnpm dev
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `DEEPSEEK_API_KEY` | — | **必填**，DeepSeek API Key（别名 `OPENAI_API_KEY`） |
-| `DEEPSEEK_MODEL` | `deepseek-chat` | 模型名称 |
-| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | API 端点 |
+| `API_KEY` | — | **必填**，DeepSeek API Key（别名 `OPENAI_API_KEY`） |
+| `MODEL` | `deepseek-chat` | 模型名称 |
+| `BASE_URL` | `https://api.deepseek.com` | API 端点 |
 | `PDF_PORT` | `3001` | API 服务端口 |
 | `DATABASE_PATH` | `./data/md-resume.db` | SQLite 数据库文件路径 |
 | `VITE_PDF_MODE` | `client` | `client` = 浏览器打印；`server` = Puppeteer 一键下载 |
@@ -62,7 +62,7 @@ pnpm dev
 生产环境需**分离部署**前端静态资源与 API 服务：
 
 1. 构建前端：`pnpm build` → 部署 `apps/web/dist/`
-2. 部署 API 服务：运行 `apps/pdf-server`（需 `DEEPSEEK_API_KEY`）
+2. 部署 API 服务：运行 `apps/pdf-server`（需 `API_KEY`）
 3. 前端环境变量指向 API 域名（`VITE_AI_API_URL`、`VITE_PDF_API_URL`）
 
 ## AI 检查用法
@@ -131,7 +131,7 @@ md-resume/
 
 **AI 检查按钮不可用？**
 
-确认 API 服务已启动且 `.env` 中已配置 `DEEPSEEK_API_KEY`。页面顶部若显示「后端未连接」横幅，请使用 `pnpm dev` 而非 `pnpm dev:web`。
+确认 API 服务已启动且 `.env` 中已配置 `API_KEY`。页面顶部若显示「后端未连接」横幅，请使用 `pnpm dev` 而非 `pnpm dev:web`。
 
 **如何导出 PDF？**
 

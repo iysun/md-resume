@@ -168,7 +168,7 @@ export default function App() {
     <div className="app">
       {!backendAvailable && (
         <div className="backend-banner" role="status">
-          离线模式：内容保存在本地浏览器。AI 检查与云同步不可用，请运行 <code>pnpm dev</code> 并配置 <code>DEEPSEEK_API_KEY</code>。
+          离线模式：内容保存在本地浏览器。AI 检查与云同步不可用，请运行 <code>pnpm dev</code> 并配置 <code>API_KEY</code>。
         </div>
       )}
       {backendAvailable && docs.saveError && (
